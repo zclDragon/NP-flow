@@ -97,7 +97,7 @@ export function WorkspaceNavMenu() {
                     <Settings2Icon />
                     {t.common.settings}
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* <DropdownMenuSeparator />
                   <a
                     href="https://deerflow.tech/"
                     target="_blank"
@@ -134,7 +134,7 @@ export function WorkspaceNavMenu() {
                       <MailIcon />
                       {t.workspace.contactUs}
                     </DropdownMenuItem>
-                  </a>
+                  </a> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

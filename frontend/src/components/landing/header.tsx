@@ -31,10 +31,10 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           target={isExternalHome ? "_blank" : "_self"}
           rel={isExternalHome ? "noopener noreferrer" : undefined}
         >
-          <h1 className="font-serif text-xl">DeerFlow</h1>
+          <h1 className="font-serif text-xl">NPFlow</h1>
         </a>
       </div>
-      <nav className="mr-8 ml-auto flex items-center gap-8 text-sm font-medium">
+      {/* <nav className="mr-8 ml-auto flex items-center gap-8 text-sm font-medium">
         <Link
           href={`/${lang}/docs`}
           className="text-secondary-foreground hover:text-foreground transition-colors"
@@ -74,7 +74,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
               env.GITHUB_OAUTH_TOKEN && <StarCounter />}
           </a>
         </Button>
-      </div>
+      </div> */}
       <hr className="from-border/0 via-border/70 to-border/0 absolute top-16 right-0 left-0 z-10 m-0 h-px w-full border-none bg-linear-to-r" />
     </header>
   );

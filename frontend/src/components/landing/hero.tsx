@@ -55,7 +55,7 @@ export function Hero({ className }: { className?: string }) {
               "Learn Anything",
             ]}
           />{" "}
-          <div>with DeerFlow</div>
+          <div>with NP-flow</div>
         </h1>
         {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY && (
           <a
@@ -69,7 +69,7 @@ export function Hero({ className }: { className?: string }) {
             </div>
           </a>
         )}
-        <p className="text-muted-foreground mt-8 scale-105 text-center text-2xl text-shadow-sm">
+        {/* <p className="text-muted-foreground mt-8 scale-105 text-center text-2xl text-shadow-sm">
           An open-source SuperAgent harness that researches, codes, and creates.
           With
           <br />
@@ -77,10 +77,10 @@ export function Hero({ className }: { className?: string }) {
           handles
           <br />
           different levels of tasks that could take minutes to hours.
-        </p>
+        </p> */}
         <Link href="/workspace">
           <Button className="size-lg mt-8 scale-108" size="lg">
-            <span className="text-md">Get Started with 2.0</span>
+            <span className="text-md">Get Started with NP-flow</span>
             <ChevronRightIcon className="size-4" />
           </Button>
         </Link>

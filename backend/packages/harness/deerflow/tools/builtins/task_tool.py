@@ -42,6 +42,7 @@ async def task_tool(
     - **bash**: Command execution specialist for running bash commands. This is only
       available when host bash is explicitly allowed or when using an isolated shell
       sandbox such as `AioSandboxProvider`.
+    - **data-agent**: 专业的数据分析员工，支持数据分析、问数查询、报表呈现。使用此子代理当需要进行深度数据分析、灵活的问数查询、生成专业标准的分析报表时。
 
     When to use this tool:
     - Complex tasks requiring multiple steps or tools

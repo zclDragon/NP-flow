@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["artifacts"])
 
 ACTIVE_CONTENT_MIME_TYPES = {
-    "text/html",
-    "application/xhtml+xml",
+    # "text/html",
+    # "application/xhtml+xml",
     "image/svg+xml",
 }
 

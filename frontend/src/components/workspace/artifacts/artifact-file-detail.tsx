@@ -317,7 +317,7 @@ export function ArtifactFilePreview({
       <iframe
         className="size-full"
         title="Artifact preview"
-        sandbox="allow-scripts allow-forms"
+        sandbox="allow-scripts allow-forms allow-downloads allow-popups allow-top-navigation allow-same-origin"
         src={htmlPreviewUrl}
       />
     );
