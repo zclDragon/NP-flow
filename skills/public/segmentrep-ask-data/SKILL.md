@@ -1,6 +1,6 @@
 ---
 name: segmentrep-ask-data
-description: 使用可用的 PostgreSQL MCP 查询工具回答 Segmentrep 经营分析数据库中的自然语言问数问题。适用于用户询问 Segmentrep、YTD3、经营分析、问数、Actual/Budget/Forecast 对比、业务单元指标、P&L、销售、库存、人工、销量、表内逻辑检核等数据分析场景。
+description: 使用可用的 PostgreSQL MCP 查询工具回答 Segmentrep 经营分析数据库中的自然语言问数问题。适用于用户询问 Segmentrep、YTD3、经营分析、问数、Actual/Budget/Forecast 对比、业务单元指标、P&L、销售、库存、人工、销量、表内逻辑检核，以及需要把查询结果进一步生成图表并展示为精美 HTML 页面等数据分析场景。
 ---
 
 # Segmentrep 问数
@@ -18,7 +18,8 @@ description: 使用可用的 PostgreSQL MCP 查询工具回答 Segmentrep 经营
    - 场景：`scenario_source_label`，例如 `Actual2026`、`Budget2026`、`Actual2025`、`Forecast2026`
    - 期间：`period_code`，例如 `Jan`、`1Q`、`1H`、`Current Mth`
 5. 用户表达不精确时，先用 `ILIKE` 查询业务单元或指标候选值，不要直接猜。只有多个候选差异明显且会影响结论时，才简短追问用户。
-6. 回答时说明使用了哪些过滤条件、期间、场景和关键假设。只有当用户需要溯源时，才展示 `source_row` 和 `source_col`。
+6. 如果用户要求“生成图表”“可视化”“做 dashboard”“输出 HTML 展示”，先查询出干净、可直接作图的数据集，再调用其他图表可视化 skill 生成图表，最后将图表绘制到一个精美的 HTML 页面中进行展示。
+7. 回答时说明使用了哪些过滤条件、期间、场景和关键假设。只有当用户需要溯源时，才展示 `source_row` 和 `source_col`。
 
 ## 查询规则
 
@@ -30,6 +31,12 @@ description: 使用可用的 PostgreSQL MCP 查询工具回答 Segmentrep 经营
   `diff = actual - comparator`；`diff_pct = diff / nullif(comparator, 0)`。
 - 将导入值视为报表值。不要擅自做会计方向取反，除非规则已明确记录，或用户明确要求做口径归一。
 - 当用户问到空指标行、原始 Excel 坐标、正式事实表外的数据时，查询 `segmentrep_model.stg_ytd3_cell`。
+- 当用户要求图表时，先把 SQL 结果整理成适合作图的结构：
+  - 时间序列图：`x=period_code/month_no`，`y=amount`，`series=scenario_source_label` 或 `business_unit_name`
+  - 排名条形图：`x=business_unit_name`，`y=amount`
+  - 结构占比图：仅在分类数较少、口径明确时使用
+- 图表生成后，不要只返回图片或裸图表配置；要继续输出一个带标题、摘要、指标卡、图表区和必要注释的精美 HTML 页面。
+- 如果当前环境里存在多个可视化 skill，优先选择最适合生成交互式图表和 HTML 的那个；若没有现成可视化 skill，再退回到直接生成 HTML + 内嵌图表实现。
 
 ## 常用 SQL
 
@@ -81,3 +88,4 @@ order by month_no;
 - 明确说明结果是月度、季度、半年度还是 `Current Mth`。
 - 如果用户说法是模糊匹配而不是精确字段值，说明最终采用了哪个数据库字段值。
 - 如果没有查到数据，说明已检查的最接近候选项，并给出下一步查询建议。
+- 如果用户要图表，最终输出应以 HTML 页面为主，而不是只给 SQL 结果或只给一张静态图。

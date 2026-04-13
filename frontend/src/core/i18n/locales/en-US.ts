@@ -172,6 +172,16 @@ export const enUS: Translations = {
     recentChats: "Recent chats",
     demoChats: "Demo chats",
     agents: "Agents",
+    dataSkillBuilder: "Data Skill Builder",
+  },
+
+  // Data Skill Builder
+  dataSkillBuilder: {
+    title: "Data Skill Builder",
+    description: "Create data sources and build data processing skills to enable AI to work with your data.",
+    postgresSkill: "PostgreSQL Skill",
+    postgresSkillTitle: "PostgreSQL Skill",
+    postgresSkillDescription: "Connect to PostgreSQL database and create custom data processing skills.",
   },
 
   // Agents

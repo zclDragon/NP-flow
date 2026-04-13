@@ -218,6 +218,12 @@ where business_unit_name = :business_unit_name
 order by month_no;
 ```
 
+适合：
+
+- 折线图
+- 双线/多线趋势图
+- 实际 vs 预算 vs 去年同期对比图
+
 ### 场景对比
 
 ```sql
@@ -243,6 +249,12 @@ from base
 order by month_no;
 ```
 
+适合：
+
+- 分组柱状图
+- 带差异率标注的趋势图
+- 图表 + 指标卡联合展示
+
 ### 业务单元排名
 
 ```sql
@@ -254,6 +266,11 @@ where metric_name_norm = :metric_name_norm
 order by amount desc nulls last;
 ```
 
+适合：
+
+- 排名条形图
+- Top N / Bottom N 对比图
+
 ### 原始 Excel 来源检查
 
 ```sql
@@ -263,6 +280,35 @@ where load_id = :load_id
   and source_row = :source_row
 order by source_col;
 ```
+
+## 图表与 HTML 展示约定
+
+当用户明确要求生成图表、看板、可视化页面、经营分析报告页时，遵循以下顺序：
+
+1. 先用 SQL 产出结构化结果集，字段名尽量清晰，例如：
+   - 时间趋势：`period_code`, `month_no`, `scenario_source_label`, `amount`
+   - 排名对比：`business_unit_name`, `amount`
+   - 结构分析：`metric_name_norm`, `amount`
+2. 再调用其他图表可视化 skill 生成合适的图表。
+3. 最后把图表绘制到一个精美 HTML 页面中，而不是只返回数据表。
+
+HTML 页面至少应包含：
+
+- 页面标题
+- 业务问题摘要
+- 关键指标卡
+- 1 到 3 张主图
+- 必要的数据口径说明
+- 查询条件说明，例如业务单元、期间、场景
+
+图表类型建议：
+
+- 月度/季度趋势：折线图或分组柱状图
+- 实际 vs 预算 vs 去年：多系列折线图或分组柱状图
+- 业务单元排名：横向条形图
+- 占比分析：仅在分类数量较少且总量关系明确时使用饼图/环图
+
+除非用户明确要求，不要把过多图表堆在同一页中。
 
 ## 回答口径
 

@@ -116,6 +116,16 @@ export interface Translations {
     chats: string;
     demoChats: string;
     agents: string;
+    dataSkillBuilder: string;
+  };
+
+  // Data Skill Builder
+  dataSkillBuilder: {
+    title: string;
+    description: string;
+    postgresSkill: string;
+    postgresSkillTitle: string;
+    postgresSkillDescription: string;
   };
 
   // Agents

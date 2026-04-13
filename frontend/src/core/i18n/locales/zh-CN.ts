@@ -166,6 +166,16 @@ export const zhCN: Translations = {
     recentChats: "最近的对话",
     demoChats: "演示对话",
     agents: "智能体",
+    dataSkillBuilder: "数据 Skill 构建",
+  },
+
+  // Data Skill Builder
+  dataSkillBuilder: {
+    title: "数据 Skill 构建",
+    description: "创建数据源并构建数据处理 Skill，让 AI 能够处理和分析你的数据。",
+    postgresSkill: "postgreSQL源 Skill",
+    postgresSkillTitle: "postgreSQL源 Skill",
+    postgresSkillDescription: "连接 PostgreSQL 数据库，创建自定义数据处理 Skill。",
   },
 
   // Agents
