@@ -176,9 +176,9 @@ def _build_subagent_section(max_concurrent: int) -> str:
     n = max_concurrent
     bash_available = "bash" in get_available_subagent_names()
     available_subagents = (
-        "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n- **bash**: For command execution (git, build, test, deploy operations)\n- **data-agent**: 专业的数据分析员工，支持数据分析、问数查询、报表呈现。使用此子代理当需要进行深度数据分析、灵活的问数查询、生成专业标准的分析报表时。"
+        "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n- **bash**: For command execution (git, build, test, deploy operations)"
         if bash_available
-        else "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n- **data-agent**: 专业的数据分析员工，支持数据分析、问数查询、报表呈现。使用此子代理当需要进行深度数据分析、灵活的问数查询、生成专业标准的分析报表时。\n"
+        else "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n"
         "- **bash**: Not available in the current sandbox configuration. Use direct file/web tools or switch to AioSandboxProvider for isolated shell access."
     )
     direct_tool_examples = "bash, ls, read_file, web_search, etc." if bash_available else "ls, read_file, web_search, etc."
