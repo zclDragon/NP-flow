@@ -245,7 +245,7 @@ export const enUS: Translations = {
     visitGithub: "DeerFlow on GitHub",
     reportIssue: "Report a issue",
     contactUs: "Contact us",
-    about: "About DeerFlow",
+    about: "About NPFlow",
   },
 
   // Conversation
@@ -261,7 +261,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "DeerFlow",
+    appName: "NPFlow",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

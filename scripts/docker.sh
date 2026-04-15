@@ -12,6 +12,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKER_DIR="$PROJECT_ROOT/docker"
 
+# 钩子脚本配置（低耦合设计，可通过环境变量覆盖）
+# 默认钩子目录：项目根目录下的 .docker-hooks 目录
+HOOKS_DIR="${HOOKS_DIR:-$PROJECT_ROOT/.docker-hooks}"
+
+# 钩子脚本执行函数
+run_hook() {
+    local hook_name="$1"
+    local hook_script="$HOOKS_DIR/$hook_name.sh"
+    
+    if [ -f "$hook_script" ] && [ -x "$hook_script" ]; then
+        echo -e "${BLUE}[Hook] Running: $hook_name${NC}"
+        "$hook_script"
+        echo -e "${GREEN}[Hook] Completed: $hook_name${NC}"
+    fi
+}
+
 # Docker Compose command with project name
 COMPOSE_CMD="docker compose -p deer-flow-dev -f docker-compose-dev.yaml"
 
@@ -238,11 +254,17 @@ start() {
         export LANGGRAPH_REWRITE=/api/
     fi
 
+    # 执行启动前钩子
+    run_hook "pre-start"
+    
     echo "Building and starting containers..."
     cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
+    
+    # 执行启动后钩子
+    run_hook "post-start"
     echo ""
     echo "=========================================="
-    echo "  DeerFlow Docker is starting!"
+    echo "  NPFlow Docker is starting!"
     echo "=========================================="
     echo ""
     echo "  🌐 Application: http://localhost:2026"
@@ -300,10 +322,18 @@ stop() {
     if [ -z "$DEER_FLOW_ROOT" ]; then
         export DEER_FLOW_ROOT="$PROJECT_ROOT"
     fi
+    
+    # 执行停止前钩子
+    run_hook "pre-stop"
+    
     echo "Stopping Docker development services..."
     cd "$DOCKER_DIR" && $COMPOSE_CMD down
     echo "Cleaning up sandbox containers..."
     "$SCRIPT_DIR/cleanup-containers.sh" deer-flow-sandbox 2>/dev/null || true
+    
+    # 执行停止后钩子
+    run_hook "post-stop"
+    
     echo -e "${GREEN}✓ Docker services stopped${NC}"
 }
 
@@ -313,14 +343,11 @@ restart() {
     echo "  Restarting DeerFlow Docker Services"
     echo "========================================"
     echo ""
-    echo -e "${BLUE}Restarting containers...${NC}"
-    cd "$DOCKER_DIR" && $COMPOSE_CMD restart
+    
+    # 通过 stop + start 来重启，确保钩子正常执行
+    stop
     echo ""
-    echo -e "${GREEN}✓ Docker services restarted${NC}"
-    echo ""
-    echo "  🌐 Application: http://localhost:2026"
-    echo "  📋 View logs: make docker-logs"
-    echo ""
+    start "$@"
 }
 
 # Show help
