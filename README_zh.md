@@ -171,10 +171,23 @@ https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
 
 ```bash
 make docker-init    # 拉取 sandbox 镜像（首次运行或镜像更新时执行）
-make docker-start   # 启动服务（会根据 config.yaml 自动判断 sandbox 模式）
+make docker-start   # 启动服务，不重建镜像
+make docker-restart # 重启服务，不重建镜像
+make docker-rebuild # 重建镜像后再重启服务
 ```
 
 如果 `config.yaml` 使用的是 provisioner 模式（`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 且配置了 `provisioner_url`），`make docker-start` 才会启动 `provisioner`。
+
+`make docker-start` 和 `make docker-restart` 默认都不会强制重建镜像。只有在修改了 Dockerfile、build 参数，或者需要刷新构建期依赖 / 基础镜像时，才需要执行 `make docker-rebuild`。
+
+如果你使用的是 Docker Gateway 模式，对应的重建命令是 `make docker-rebuild-pro`。
+
+如果网络环境受限，需要加速 Docker 构建时使用的依赖源，可以在执行 `make docker-init` 或 `make docker-rebuild` 前导出：
+
+```bash
+export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export NPM_REGISTRY=https://registry.npmmirror.com
+```
 
 **生产模式**（本地构建镜像，并挂载运行期配置与数据）：
 

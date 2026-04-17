@@ -1,6 +1,6 @@
 # DeerFlow - Unified Development Environment
 
-.PHONY: help config config-upgrade check install setup doctor dev dev-pro dev-daemon dev-daemon-pro start start-pro start-daemon start-daemon-pro stop up up-pro down clean docker-init docker-start docker-start-pro docker-stop docker-restart docker-logs docker-logs-frontend docker-logs-gateway
+.PHONY: help config config-upgrade check install setup doctor dev dev-pro dev-daemon dev-daemon-pro start start-pro start-daemon start-daemon-pro stop up up-pro down clean docker-init docker-start docker-start-pro docker-stop docker-restart docker-rebuild docker-rebuild-pro docker-logs docker-logs-frontend docker-logs-gateway
 
 BASH ?= bash
 BACKEND_UV_RUN = cd backend && uv run
@@ -47,6 +47,8 @@ help:
 	@echo "  make docker-start-pro - Start Docker in Gateway mode (experimental, no LangGraph container)"
 	@echo "  make docker-stop     - Stop Docker development services"
 	@echo "  make docker-restart  - Restart Docker development services"
+	@echo "  make docker-rebuild  - Rebuild and restart Docker development services"
+	@echo "  make docker-rebuild-pro - Rebuild and restart Docker in Gateway mode"
 	@echo "  make docker-logs     - View Docker development logs"
 	@echo "  make docker-logs-frontend - View Docker frontend logs"
 	@echo "  make docker-logs-gateway - View Docker gateway logs"
@@ -190,7 +192,16 @@ docker-stop:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh stop
 
 # Restart Docker development environment
-docker-restart: docker-stop docker-start
+docker-restart:
+	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh restart
+
+# Rebuild and restart Docker development environment
+docker-rebuild:
+	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh restart --build
+
+# Rebuild and restart Docker in Gateway mode (experimental)
+docker-rebuild-pro:
+	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh restart --gateway --build
 
 # View Docker development logs
 docker-logs:

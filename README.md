@@ -224,12 +224,16 @@ Use the table below as a practical starting point when choosing how to run DeerF
 
 ```bash
 make docker-init    # Pull sandbox image (only once or when image updates)
-make docker-start   # Start services (auto-detects sandbox mode from config.yaml)
+make docker-start   # Start services without rebuilding images
+make docker-restart # Restart services without rebuilding images
+make docker-rebuild # Rebuild images, then restart services
 ```
 
 `make docker-start` starts `provisioner` only when `config.yaml` uses provisioner mode (`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` with `provisioner_url`).
 
-Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-start`.
+`make docker-start` and `make docker-restart` no longer force image rebuilds. Use `make docker-rebuild` when you change a Dockerfile, build arguments, or need to refresh build-time dependencies and base images.
+
+Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-rebuild`.
 
 Backend processes automatically pick up `config.yaml` changes on the next config access, so model metadata updates do not require a manual restart during development.
 
@@ -304,7 +308,10 @@ DeerFlow supports multiple startup modes across two dimensions:
 | Action | Local | Docker Dev | Docker Prod |
 |---|---|---|---|
 | **Stop** | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
-| **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
+| **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart`<br/>`make docker-restart` | — |
+| **Rebuild + Restart** | — | `./scripts/docker.sh restart --build`<br/>`make docker-rebuild` | — |
+
+For Docker Gateway mode, the equivalent rebuild command is `./scripts/docker.sh restart --gateway --build` or `make docker-rebuild-pro`.
 
 > **Gateway mode** eliminates the LangGraph server process — the Gateway API handles agent execution directly via async tasks, managing its own concurrency.
 

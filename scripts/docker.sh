@@ -164,16 +164,19 @@ init() {
 }
 
 # Start Docker development environment
-# Usage: start [--gateway]
+# Usage: start [--gateway] [--build]
 start() {
     local sandbox_mode
     local services
     local gateway_mode=false
+    local build_mode=false
 
     # Check for --gateway flag
     for arg in "$@"; do
         if [ "$arg" = "--gateway" ]; then
             gateway_mode=true
+        elif [ "$arg" = "--build" ]; then
+            build_mode=true
         fi
     done
 
@@ -257,8 +260,13 @@ start() {
     # 执行启动前钩子
     run_hook "pre-start"
     
-    echo "Building and starting containers..."
-    cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
+    if $build_mode; then
+        echo "Building and starting containers..."
+        cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
+    else
+        echo "Starting containers..."
+        cd "$DOCKER_DIR" && $COMPOSE_CMD up -d --remove-orphans $services
+    fi
     
     # 执行启动后钩子
     run_hook "post-start"
@@ -339,6 +347,17 @@ stop() {
 
 # Restart Docker development environment
 restart() {
+    local gateway_mode=false
+    local build_mode=false
+
+    for arg in "$@"; do
+        if [ "$arg" = "--gateway" ]; then
+            gateway_mode=true
+        elif [ "$arg" = "--build" ]; then
+            build_mode=true
+        fi
+    done
+
     echo "========================================"
     echo "  Restarting DeerFlow Docker Services"
     echo "========================================"
@@ -347,7 +366,15 @@ restart() {
     # 通过 stop + start 来重启，确保钩子正常执行
     stop
     echo ""
-    start "$@"
+    if $gateway_mode && $build_mode; then
+        start --gateway --build
+    elif $gateway_mode; then
+        start --gateway
+    elif $build_mode; then
+        start --build
+    else
+        start
+    fi
 }
 
 # Show help
@@ -359,8 +386,10 @@ help() {
     echo "Commands:"
     echo "  init              - Pull the sandbox image (speeds up first Pod startup)"
     echo "  start             - Start Docker services (auto-detects sandbox mode from config.yaml)"
+    echo "  start --build     - Rebuild and start Docker services"
     echo "  start --gateway   - Start without LangGraph container (Gateway mode, experimental)"
     echo "  restart           - Restart all running Docker services"
+    echo "  restart --build   - Rebuild and restart all running Docker services"
     echo "  logs [option] - View Docker development logs"
     echo "                  --frontend   View frontend logs only"
     echo "                  --gateway    View gateway logs only"
