@@ -61,7 +61,7 @@ export const enUS: Translations = {
   welcome: {
     greeting: "Hello, again!",
     description:
-      "Welcome to NPFlow, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
+      "Welcome to NP-ODP, an open source super agent. With built-in and custom skills, DeerFlow helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
@@ -245,7 +245,7 @@ export const enUS: Translations = {
     visitGithub: "DeerFlow on GitHub",
     reportIssue: "Report a issue",
     contactUs: "Contact us",
-    about: "About NPFlow",
+    about: "About NP-ODP",
   },
 
   // Conversation
@@ -261,7 +261,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "NPFlow",
+    appName: "NP-ODP",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

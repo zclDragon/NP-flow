@@ -28,6 +28,7 @@ const CHART_TYPE_MAP = {
   generate_treemap_chart: "treemap",
   generate_venn_chart: "venn",
   generate_violin_chart: "violin",
+  generate_waterfall_chart: "waterfall",
   generate_word_cloud_chart: "word-cloud",
 };
 

@@ -25,6 +25,7 @@ dependency:
 - **专业图表**：
     - `generate_radar_chart`：多维比较。
     - `generate_funnel_chart`：流程阶段。
+    - `generate_waterfall_chart`：分步增减与累计变化；对于桥接类场景，通常需包含起始节点、变化贡献节点和结束节点。
     - `generate_liquid_chart`：百分比/进度。
     - `generate_word_cloud_chart`：文本频率。
     - `generate_boxplot_chart` 或 `generate_violin_chart`：统计分布。

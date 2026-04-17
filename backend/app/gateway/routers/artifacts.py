@@ -174,6 +174,10 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
 
     if mime_type and mime_type.startswith("text/"):
         return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)
+    
+    # 已明确识别为非文本类型的二进制文件，直接返回，避免被内容检测误判
+    if mime_type:
+        return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": _build_content_disposition("inline", actual_path.name)})
 
     if is_text_file_by_content(actual_path):
         return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)

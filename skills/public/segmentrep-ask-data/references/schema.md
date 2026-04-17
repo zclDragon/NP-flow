@@ -12,13 +12,16 @@ Excel 的 `YTD3` Sheet 已被拆成长表并建成星型模型：
 - `dim_period`：期间维表，共 19 个期间。
 - `report_value_fact`：正式事实表，共 384,560 行。
 - `stg_ytd3_cell`：原始单元格落地表，共 409,564 行，其中 25,004 行为空指标名尾部数据。
-- `vw_ytd3_report_value`：查询友好视图，适合大多数问数问题。
+- `stg_seg_framework`：`seg框架` 原始落地表，按合并单元格展开 `事业群/事业部/产线`。
+- `dim_seg_node`：Segment 组织层级节点维表，统一存储事业群、事业部、产线。
+- `bridge_business_unit_seg_node`：业务单元到 Segment 层级节点的桥接表，保留精确匹配、人工确认匹配、歧义匹配和未匹配状态。
+- `vw_ytd3_report_value_with_seg`：经营分析主问数视图，直接基于事实表、维表和 Segment 映射表创建，带事业群、事业部、产线字段。
 
-## 首选分析视图
+## 主问数视图
 
-优先查询：
+默认优先查询：
 
-`segmentrep_model.vw_ytd3_report_value`
+`segmentrep_model.vw_ytd3_report_value_with_seg`
 
 字段说明：
 
@@ -47,6 +50,21 @@ Excel 的 `YTD3` Sheet 已被拆成长表并建成星型模型：
 | `amount` | 报表数值，类型为 `numeric(20,4)`。 |
 | `source_row` | Excel 来源行号。 |
 | `source_col` | Excel 来源列号。 |
+
+`vw_ytd3_report_value_with_seg` 在上述字段基础上增加：
+
+| 字段 | 含义 |
+| --- | --- |
+| `seg_match_type` | 业务单元与 Segment 层级的匹配状态：`exact_name`、`ambiguous_exact_name`、`unmatched_review`、`manual`。 |
+| `seg_matched_level` | 匹配层级：`business_group`、`business_division`、`product_line`。 |
+| `seg_match_confidence` | 匹配置信度，唯一精确匹配为 `1.0`。 |
+| `seg_node_id` | 匹配到的 Segment 节点 ID。 |
+| `seg_node_type` | Segment 节点类型。 |
+| `seg_node_name` | Segment 节点名称。 |
+| `business_group` | 事业群。 |
+| `business_division` | 事业部。 |
+| `product_line` | 产线。 |
+| `seg_mapping_note` | 映射备注；歧义或未匹配时用于说明待复核原因。 |
 
 ## 底层表
 
@@ -140,6 +158,45 @@ order by row_order;
 
 空指标名或未映射行满足：`is_unmapped_metric = true`。
 
+### `segmentrep_model.stg_seg_framework`
+
+`seg框架` 原始落地表，来源于 `NPTU 经营数据平台（智能问数）.xlsx` 的 `seg框架` Sheet，已按 Excel 合并单元格展开并压缩为 28 条层级组合。
+
+关键字段：
+
+- `source_row_start` / `source_row_end`：来源行范围。
+- `business_group`：事业群。
+- `business_division`：事业部。
+- `product_line`：产线，部分事业部级或事业群级节点为空。
+- `source_tuple`：原始三层组合 JSON。
+
+### `segmentrep_model.dim_seg_node`
+
+Segment 组织层级节点维表。当前节点数：
+
+- 事业群：7 个。
+- 事业部：12 个。
+- 产线：15 个。
+
+关键字段：
+
+- `node_type`：`business_group`、`business_division`、`product_line`。
+- `node_name`：节点名称。
+- `parent_node_id`：父级节点。
+- `business_group`、`business_division`、`product_line`：冗余层级字段，便于查询。
+- `is_leaf`：是否叶子节点。
+
+### `segmentrep_model.bridge_business_unit_seg_node`
+
+业务单元与 Segment 层级桥接表。自动匹配状态：
+
+- `exact_name`：唯一精确匹配。
+- `ambiguous_exact_name`：多个层级同名候选，例如 `TUB` 同时是事业群和事业部。
+- `unmatched_review`：未匹配，待人工复核。
+- `manual`：人工确认匹配。当前 `TUB` 已由用户确认：`TUB` 同时是事业群和事业部，`dim_business_unit` 中的 `TUB` 按事业部节点映射，其父级事业群同为 `TUB`。
+
+按 Segment 层级问数时，默认使用 `match_type in ('exact_name','manual')`。歧义和未匹配项要在回答中说明，不要静默纳入。
+
 ## 指标分组
 
 可用 `metric_group` 粗筛：
@@ -186,6 +243,24 @@ order by row_order;
 - `成品产量`
 - `表内损益间逻辑检核`
 
+## 默认问数口径
+
+当用户没有明确指定口径时，按以下默认值处理，并在回答中说明：
+
+- 收入：默认 `metric_name_norm = 'TOTAL NET SALES'`。
+- 场景：默认当年实际，`scenario_source_label = 'Actual2026'`。
+- 组织范围：默认 TU TOTAL，`business_unit_name = 'TU-事业部合计'`。
+- 利润：默认税前利润，`metric_name_norm = 'PROFIT BEFORE TAX'`。
+- 利润率：默认税前利润率，计算公式为 `PROFIT BEFORE TAX / TOTAL NET SALES`。
+
+示例：
+
+- “Q1的收入是多少？” = `TU-事业部合计` + `TOTAL NET SALES` + `Actual2026` + `1Q`。
+- “利润率是多少？” = `TU-事业部合计` + `Actual2026` + `PROFIT BEFORE TAX / TOTAL NET SALES`。
+- “TUC收入趋势” = `business_group = 'TUC'` + `TOTAL NET SALES` + `Actual2026` + 月度趋势。
+
+注意：如果用户明确说“毛收入”，再考虑 `Total Gross Sales` 或 `TOTAL GROSS SALES`；如果用户明确说“净收入/销售收入/收入”，默认仍使用 `TOTAL NET SALES`。
+
 ## SQL 模板
 
 ### 候选值匹配
@@ -206,11 +281,47 @@ where metric_name_norm ilike '%' || :term || '%'
 order by row_order;
 ```
 
+### 默认收入查询
+
+用户问“收入”但没有说明实际/预算/组织范围时使用此模板。
+
+```sql
+select business_unit_name, metric_name_norm, scenario_source_label, period_code, amount
+from segmentrep_model.vw_ytd3_report_value_with_seg
+where business_unit_name = 'TU-事业部合计'
+  and metric_name_norm = 'TOTAL NET SALES'
+  and scenario_source_label = 'Actual2026'
+  and period_code = :period_code;
+```
+
+### 默认税前利润率
+
+```sql
+with base as (
+  select
+    period_code,
+    max(amount) filter (where metric_name_norm = 'PROFIT BEFORE TAX') as pre_tax_profit,
+    max(amount) filter (where metric_name_norm = 'TOTAL NET SALES') as total_net_sales
+  from segmentrep_model.vw_ytd3_report_value_with_seg
+  where business_unit_name = coalesce(:business_unit_name, 'TU-事业部合计')
+    and scenario_source_label = coalesce(:scenario_source_label, 'Actual2026')
+    and period_code = :period_code
+    and metric_name_norm in ('PROFIT BEFORE TAX', 'TOTAL NET SALES')
+  group by period_code
+)
+select
+  period_code,
+  pre_tax_profit,
+  total_net_sales,
+  pre_tax_profit / nullif(total_net_sales, 0) as pre_tax_profit_margin
+from base;
+```
+
 ### 月度时间序列
 
 ```sql
 select period_code, amount
-from segmentrep_model.vw_ytd3_report_value
+from segmentrep_model.vw_ytd3_report_value_with_seg
 where business_unit_name = :business_unit_name
   and metric_name_norm = :metric_name_norm
   and scenario_source_label = :scenario_source_label
@@ -235,7 +346,7 @@ with base as (
     month_no,
     sum(amount) filter (where scenario_source_label = :scenario_a) as value_a,
     sum(amount) filter (where scenario_source_label = :scenario_b) as value_b
-  from segmentrep_model.vw_ytd3_report_value
+  from segmentrep_model.vw_ytd3_report_value_with_seg
   where business_unit_name = :business_unit_name
     and metric_name_norm = :metric_name_norm
     and period_type = 'month'
@@ -259,7 +370,7 @@ order by month_no;
 
 ```sql
 select business_unit_name, amount
-from segmentrep_model.vw_ytd3_report_value
+from segmentrep_model.vw_ytd3_report_value_with_seg
 where metric_name_norm = :metric_name_norm
   and scenario_source_label = :scenario_source_label
   and period_code = :period_code
@@ -270,6 +381,71 @@ order by amount desc nulls last;
 
 - 排名条形图
 - Top N / Bottom N 对比图
+
+### 按事业群汇总
+
+```sql
+select
+  business_group,
+  period_code,
+  sum(amount) as amount
+from segmentrep_model.vw_ytd3_report_value_with_seg
+where seg_match_type in ('exact_name','manual')
+  and business_group = :business_group
+  and metric_name_norm = :metric_name_norm
+  and scenario_source_label = :scenario_source_label
+  and period_type = 'month'
+group by business_group, period_code, month_no
+order by month_no;
+```
+
+### 按事业部或产线过滤
+
+```sql
+select
+  business_group,
+  business_division,
+  product_line,
+  period_code,
+  sum(amount) as amount
+from segmentrep_model.vw_ytd3_report_value_with_seg
+where seg_match_type in ('exact_name','manual')
+  and business_division = :business_division
+  and metric_name_norm = :metric_name_norm
+  and scenario_source_label = :scenario_source_label
+  and period_type = 'month'
+group by business_group, business_division, product_line, period_code, month_no
+order by min(seg_node_id), month_no;
+```
+
+### 按架构展示事业部/产线列表
+
+涉及事业部、产线列表展现时，默认使用 `seg_node_id` 排序，保持 `seg框架` 的架构顺序。
+
+```sql
+select
+  business_group,
+  business_division,
+  product_line,
+  seg_node_id,
+  sum(amount) as amount
+from segmentrep_model.vw_ytd3_report_value_with_seg
+where seg_match_type in ('exact_name','manual')
+  and metric_name_norm = coalesce(:metric_name_norm, 'TOTAL NET SALES')
+  and scenario_source_label = coalesce(:scenario_source_label, 'Actual2026')
+  and period_code = :period_code
+group by business_group, business_division, product_line, seg_node_id
+order by seg_node_id;
+```
+
+### 检查 Segment 匹配状态
+
+```sql
+select match_type, count(*)
+from segmentrep_model.bridge_business_unit_seg_node
+group by match_type
+order by match_type;
+```
 
 ### 原始 Excel 来源检查
 
@@ -289,8 +465,10 @@ order by source_col;
    - 时间趋势：`period_code`, `month_no`, `scenario_source_label`, `amount`
    - 排名对比：`business_unit_name`, `amount`
    - 结构分析：`metric_name_norm`, `amount`
-2. 再调用其他图表可视化 skill 生成合适的图表。
+2. 再调用其他图表可视化 skill 生成合适的图表，要求图表工具返回可公网访问的图片链接。
 3. 最后把图表绘制到一个精美 HTML 页面中，而不是只返回数据表。
+
+任何类型文件的报表，包括 HTML、PDF、PPTX、Word、Excel，图表都要优先使用图表可视化 skill 得到的图片链接。不要自己用代码生成图表图片；如果没有可用图表工具，先说明限制并输出数据表/指标卡，不要自行画图替代。
 
 HTML 页面至少应包含：
 
@@ -300,6 +478,14 @@ HTML 页面至少应包含：
 - 1 到 3 张主图
 - 必要的数据口径说明
 - 查询条件说明，例如业务单元、期间、场景
+
+颜色语义：
+
+- 达成、优于预算、同比改善：绿色。
+- 未达成、低于预算、同比恶化：红色。
+- 接近目标、无明确好坏方向、结构性占比：中性色。
+
+颜色只能作为视觉辅助，必须同时展示数值、差异和文字说明。不要只用颜色表达结论。
 
 图表类型建议：
 

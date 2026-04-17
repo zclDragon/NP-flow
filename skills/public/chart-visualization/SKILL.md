@@ -25,6 +25,7 @@ Analyze the user's data features to determine the most appropriate chart type. U
 - **Specialized**:
     - `generate_radar_chart`: Multi-dimensional comparison.
     - `generate_funnel_chart`: Process stages.
+    - `generate_waterfall_chart`: Stepwise increases/decreases and cumulative change; for bridge-style cases, typically include a starting node, contribution nodes, and an ending node.
     - `generate_liquid_chart`: Percentage/Progress.
     - `generate_word_cloud_chart`: Text frequency.
     - `generate_boxplot_chart` or `generate_violin_chart`: Statistical distribution.
