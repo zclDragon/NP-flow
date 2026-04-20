@@ -105,9 +105,12 @@ export function InputBox({
   status = "ready",
   context,
   extraHeader,
+  hideDefaultSuggestions,
   isNewThread,
   threadId,
   initialValue,
+  prefillText,
+  prefillVersion,
   onContextChange,
   onFollowupsVisibilityChange,
   onSubmit,
@@ -125,9 +128,12 @@ export function InputBox({
     reasoning_effort?: "minimal" | "low" | "medium" | "high";
   };
   extraHeader?: React.ReactNode;
+  hideDefaultSuggestions?: boolean;
   isNewThread?: boolean;
   threadId: string;
   initialValue?: string;
+  prefillText?: string;
+  prefillVersion?: number;
   onContextChange?: (
     context: Omit<
       AgentThreadContext,
@@ -159,6 +165,7 @@ export function InputBox({
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(
     null,
   );
+  const lastPrefillVersionRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (models.length === 0) {
@@ -356,6 +363,25 @@ export function InputBox({
   useEffect(() => {
     return () => followupsVisibilityChangeRef.current?.(false);
   }, []);
+
+  useEffect(() => {
+    if (
+      prefillVersion == null ||
+      prefillVersion === lastPrefillVersionRef.current ||
+      !prefillText
+    ) {
+      return;
+    }
+
+    lastPrefillVersionRef.current = prefillVersion;
+    textInput.setInput(prefillText);
+
+    requestAnimationFrame(() => {
+      const textarea =
+        promptRootRef.current?.querySelector<HTMLTextAreaElement>("textarea");
+      textarea?.focus();
+    });
+  }, [prefillText, prefillVersion, textInput]);
 
   useEffect(() => {
     const streaming = status === "streaming";
@@ -843,11 +869,13 @@ export function InputBox({
         )}
       </PromptInput>
 
-      {isNewThread && searchParams.get("mode") !== "skill" && (
+      {isNewThread &&
+        !hideDefaultSuggestions &&
+        searchParams.get("mode") !== "skill" && (
         <div className="flex items-center justify-center pt-2">
           <SuggestionList />
         </div>
-      )}
+        )}
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>

@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 export default function AgentChatPage() {
   const { t } = useI18n();
   const [showFollowups, setShowFollowups] = useState(false);
+  const [prefillText, setPrefillText] = useState("");
+  const [prefillVersion, setPrefillVersion] = useState(0);
   const router = useRouter();
 
   const { agent_name } = useParams<{
@@ -90,10 +92,18 @@ export default function AgentChatPage() {
     await thread.stop();
   }, [thread]);
 
+  const handleAgentSuggestionClick = useCallback((suggestion: string) => {
+    setPrefillText(suggestion);
+    setPrefillVersion((version) => version + 1);
+  }, []);
+
   const messageListPaddingBottom = showFollowups
     ? MESSAGE_LIST_DEFAULT_PADDING_BOTTOM +
       MESSAGE_LIST_FOLLOWUPS_EXTRA_PADDING_BOTTOM
     : undefined;
+  const hasPresetSuggestions =
+    (agent?.preset_suggestions?.filter((suggestion) => suggestion.trim().length > 0)
+      .length ?? 0) > 0;
 
   return (
     <ThreadContext.Provider value={{ thread }}>
@@ -153,7 +163,7 @@ export default function AgentChatPage() {
             <div className="absolute right-0 bottom-0 left-0 z-30 flex justify-center px-4">
               <div
                 className={cn(
-                  "relative w-full",
+                  "relative flex w-full flex-col gap-4",
                   isNewThread && "-translate-y-[calc(50vh-96px)]",
                   isNewThread
                     ? "max-w-(--container-width-sm)"
@@ -172,11 +182,22 @@ export default function AgentChatPage() {
                   </div>
                 </div>
 
+                {isNewThread && (
+                  <AgentWelcome
+                    agent={agent}
+                    agentName={agent_name}
+                    onSuggestionClick={handleAgentSuggestionClick}
+                  />
+                )}
+
                 <InputBox
-                  className={cn("bg-background/5 w-full -translate-y-4")}
+                  className={cn("bg-background/5 w-full")}
+                  hideDefaultSuggestions={hasPresetSuggestions}
                   isNewThread={isNewThread}
                   threadId={threadId}
                   autoFocus={isNewThread}
+                  prefillText={prefillText}
+                  prefillVersion={prefillVersion}
                   status={
                     thread.error
                       ? "error"
@@ -185,11 +206,6 @@ export default function AgentChatPage() {
                         : "ready"
                   }
                   context={settings.context}
-                  extraHeader={
-                    isNewThread && (
-                      <AgentWelcome agent={agent} agentName={agent_name} />
-                    )
-                  }
                   disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"}
                   onContextChange={(context) => setSettings("context", context)}
                   onFollowupsVisibilityChange={setShowFollowups}

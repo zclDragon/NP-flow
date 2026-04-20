@@ -25,6 +25,7 @@ class AgentResponse(BaseModel):
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
+    preset_suggestions: list[str] | None = Field(default=None, description="Optional preset starter questions shown on the agent chat page")
     soul: str | None = Field(default=None, description="SOUL.md content")
 
 
@@ -41,6 +42,7 @@ class AgentCreateRequest(BaseModel):
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
+    preset_suggestions: list[str] | None = Field(default=None, description="Optional preset starter questions shown on the agent chat page")
     soul: str = Field(default="", description="SOUL.md content — agent personality and behavioral guardrails")
 
 
@@ -50,6 +52,7 @@ class AgentUpdateRequest(BaseModel):
     description: str | None = Field(default=None, description="Updated description")
     model: str | None = Field(default=None, description="Updated model override")
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
+    preset_suggestions: list[str] | None = Field(default=None, description="Updated preset starter questions shown on the agent chat page")
     soul: str | None = Field(default=None, description="Updated SOUL.md content")
 
 
@@ -94,6 +97,7 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         description=agent_cfg.description,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
+        preset_suggestions=agent_cfg.preset_suggestions,
         soul=soul,
     )
 
@@ -215,6 +219,8 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
             config_data["model"] = request.model
         if request.tool_groups is not None:
             config_data["tool_groups"] = request.tool_groups
+        if request.preset_suggestions is not None:
+            config_data["preset_suggestions"] = request.preset_suggestions
 
         config_file = agent_dir / "config.yaml"
         with open(config_file, "w", encoding="utf-8") as f:
@@ -271,7 +277,7 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
 
     try:
         # Update config if any config fields changed
-        config_changed = any(v is not None for v in [request.description, request.model, request.tool_groups])
+        config_changed = any(v is not None for v in [request.description, request.model, request.tool_groups, request.preset_suggestions])
 
         if config_changed:
             updated: dict = {
@@ -285,6 +291,10 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             new_tool_groups = request.tool_groups if request.tool_groups is not None else agent_cfg.tool_groups
             if new_tool_groups is not None:
                 updated["tool_groups"] = new_tool_groups
+
+            new_preset_suggestions = request.preset_suggestions if request.preset_suggestions is not None else agent_cfg.preset_suggestions
+            if new_preset_suggestions is not None:
+                updated["preset_suggestions"] = new_preset_suggestions
 
             config_file = agent_dir / "config.yaml"
             with open(config_file, "w", encoding="utf-8") as f:
