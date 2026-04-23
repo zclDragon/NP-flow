@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -86,6 +87,27 @@ class ThreadStateResponse(BaseModel):
     parent_checkpoint_id: str | None = Field(default=None, description="Parent checkpoint ID")
     created_at: str | None = Field(default=None, description="Checkpoint timestamp")
     tasks: list[dict[str, Any]] = Field(default_factory=list, description="Interrupted task details")
+
+
+class ThreadLightResponse(BaseModel):
+    """Response model for lightweight thread listings."""
+
+    thread_id: str = Field(description="Unique thread identifier")
+    status: str = Field(default="idle", description="Thread status: idle, busy, interrupted, error")
+    created_at: str = Field(default="", description="ISO timestamp")
+    updated_at: str = Field(default="", description="ISO timestamp")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Thread metadata")
+    values: dict[str, Any] = Field(default_factory=dict, description="Lightweight state values")
+
+
+class ThreadLightSearchRequest(BaseModel):
+    """Request body for lightweight thread searching."""
+
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Metadata filter (exact match)")
+    limit: int = Field(default=100, ge=1, le=1000, description="Maximum results")
+    offset: int = Field(default=0, ge=0, description="Pagination offset")
+    status: str | None = Field(default=None, description="Filter by thread status")
+    include_values: bool = Field(default=True, description="Whether to include lightweight values from store")
 
 
 class ThreadPatchRequest(BaseModel):
@@ -209,6 +231,64 @@ def _derive_thread_status(checkpoint_tuple) -> str:
     return "idle"
 
 
+async def _store_search_light(store, limit: int = 10_000) -> list[dict[str, Any]]:
+    """Fetch lightweight thread records from the Store only."""
+    items = await store.asearch(THREADS_NS, limit=limit)
+    return [item.value for item in items]
+
+
+def _normalize_thread_time(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=UTC).isoformat()
+
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return ""
+
+        try:
+            return datetime.fromtimestamp(float(raw), tz=UTC).isoformat()
+        except ValueError:
+            return raw
+
+    return ""
+
+
+def _build_thread_light_response(record: dict[str, Any], include_values: bool = True) -> ThreadLightResponse:
+    """Build a lightweight thread response from a Store record."""
+    values = record.get("values", {}) if include_values else {}
+    if not isinstance(values, dict):
+        values = {}
+
+    return ThreadLightResponse(
+        thread_id=str(record.get("thread_id", "")),
+        status=str(record.get("status", "idle")),
+        created_at=_normalize_thread_time(record.get("created_at")),
+        updated_at=_normalize_thread_time(record.get("updated_at")),
+        metadata=record.get("metadata", {}) if isinstance(record.get("metadata", {}), dict) else {},
+        values=values,
+    )
+
+
+def _filter_thread_light_results(
+    results: list[ThreadLightResponse], body: ThreadLightSearchRequest
+) -> list[ThreadLightResponse]:
+    """Apply metadata/status filters and pagination to lightweight thread results."""
+    filtered = results
+
+    if body.metadata:
+        filtered = [r for r in filtered if all(r.metadata.get(k) == v for k, v in body.metadata.items())]
+
+    if body.status:
+        filtered = [r for r in filtered if r.status == body.status]
+
+    filtered.sort(key=lambda r: r.updated_at, reverse=True)
+    return filtered[body.offset : body.offset + body.limit]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -314,8 +394,25 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
     )
 
 
-@router.post("/search", response_model=list[ThreadResponse])
-async def search_threads(body: ThreadSearchRequest, request: Request) -> list[ThreadResponse]:
+@router.post("/search", response_model=list[ThreadLightResponse])
+async def search_threads(body: ThreadLightSearchRequest, request: Request) -> list[ThreadLightResponse]:
+    """Search and list threads using Store records only."""
+    store = get_store(request)
+    if store is None:
+        raise HTTPException(status_code=503, detail="Store not available")
+
+    try:
+        records = await _store_search_light(store, limit=10_000)
+    except Exception:
+        logger.exception("Lightweight store search failed")
+        raise HTTPException(status_code=500, detail="Failed to search lightweight threads")
+
+    results = [_build_thread_light_response(record, include_values=body.include_values) for record in records]
+    return _filter_thread_light_results(results, body)
+
+
+@router.post("/search_legacy", response_model=list[ThreadResponse])
+async def search_threads_legacy(body: ThreadSearchRequest, request: Request) -> list[ThreadResponse]:
     """Search and list threads.
 
     Two-phase approach:
