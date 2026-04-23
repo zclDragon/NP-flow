@@ -1,0 +1,13 @@
+{
+  "name": "np-ppt-generation",
+  "private": true,
+  "description": "Portable dependency manifest for the np-ppt-generation skill.",
+  "dependencies": {
+    "fontkit": "^2.0.4",
+    "linebreak": "^1.1.0",
+    "mathjax-full": "^3.2.2",
+    "pptxgenjs": "^4.0.1",
+    "prismjs": "^1.30.0",
+    "skia-canvas": "^3.0.8"
+  }
+}
