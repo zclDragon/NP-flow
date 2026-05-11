@@ -2,33 +2,34 @@
 
 English | [中文](./README_zh.md) | [日本語](./README_ja.md) | [Français](./README_fr.md) | [Русский](./README_ru.md)
 
-[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](./backend/pyproject.toml)
-[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](./Makefile)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python\&logoColor=white)](./backend/pyproject.toml)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js\&logoColor=white)](./Makefile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 <a href="https://trendshift.io/repositories/14699" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14699" alt="bytedance%2Fdeer-flow | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+
 > On February 28th, 2026, DeerFlow claimed the 🏆 #1 spot on GitHub Trending following the launch of version 2. Thanks a million to our incredible community — you made this happen! 💪🔥
 
 DeerFlow (**D**eep **E**xploration and **E**fficient **R**esearch **Flow**) is an open-source **super agent harness** that orchestrates **sub-agents**, **memory**, and **sandboxes** to do almost anything — powered by **extensible skills**.
 
-https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
+<https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18>
 
-> [!NOTE]
-> **DeerFlow 2.0 is a ground-up rewrite.** It shares no code with v1. If you're looking for the original Deep Research framework, it's maintained on the [`1.x` branch](https://github.com/bytedance/deer-flow/tree/main-1.x) — contributions there are still welcome. Active development has moved to 2.0.
+> \[!NOTE]
+> **DeerFlow 2.0 is a ground-up rewrite.** It shares no code with v1. If you're looking for the original Deep Research framework, it's maintained on the [`1.x`](https://github.com/bytedance/deer-flow/tree/main-1.x) [branch](https://github.com/bytedance/deer-flow/tree/main-1.x) — contributions there are still welcome. Active development has moved to 2.0.
 
 ## Official Website
 
 [<img width="2880" height="1600" alt="image" src="https://github.com/user-attachments/assets/a598c49f-3b2f-41ea-a052-05e21349188a" />](https://deerflow.tech)
 
-Learn more and see **real demos** on our [**official website**](https://deerflow.tech).
+Learn more and see **real demos** on our **[official website](https://deerflow.tech)**.
 
 ## Coding Plan from ByteDance Volcengine
 
 <img width="4808" height="2400" alt="英文方舟" src="https://github.com/user-attachments/assets/2ecc7b9d-50be-4185-b1f7-5542d222fb2d" />
 
 - We strongly recommend using Doubao-Seed-2.0-Code, DeepSeek v3.2 and Kimi 2.5 to run DeerFlow
-- [Learn more](https://www.byteplus.com/en/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
-- [中国大陆地区的开发者请点击这里](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
+- [Learn more](https://www.byteplus.com/en/activity/codingplan?utm_campaign=deer_flow\&utm_content=deer_flow\&utm_medium=devrel\&utm_source=OWO\&utm_term=deer_flow)
+- [中国大陆地区的开发者请点击这里](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow\&utm_content=deer_flow\&utm_medium=devrel\&utm_source=OWO\&utm_term=deer_flow)
 
 ## InfoQuest
 
@@ -40,7 +41,7 @@ DeerFlow has newly integrated the intelligent search and crawling toolset indepe
   />
 </a>
 
----
+***
 
 ## Table of Contents
 
@@ -65,10 +66,10 @@ DeerFlow has newly integrated the intelligent search and crawling toolset indepe
       - [Using Both Providers](#using-both-providers)
   - [From Deep Research to Super Agent Harness](#from-deep-research-to-super-agent-harness)
   - [Core Features](#core-features)
-    - [Skills \& Tools](#skills--tools)
+    - [Skills & Tools](#skills--tools)
       - [Claude Code Integration](#claude-code-integration)
     - [Sub-Agents](#sub-agents)
-    - [Sandbox \& File System](#sandbox--file-system)
+    - [Sandbox & File System](#sandbox--file-system)
     - [Context Engineering](#context-engineering)
     - [Long-Term Memory](#long-term-memory)
   - [Recommended Models](#recommended-models)
@@ -98,109 +99,10 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
 ### Configuration
 
 1. **Clone the DeerFlow repository**
-
    ```bash
    git clone https://github.com/bytedance/deer-flow.git
    cd deer-flow
    ```
-
-2. **Run the setup wizard**
-
-   From the project root directory (`deer-flow/`), run:
-
-   ```bash
-   make setup
-   ```
-
-   This launches an interactive wizard that guides you through choosing an LLM provider, optional web search, and execution/safety preferences such as sandbox mode, bash access, and file-write tools. It generates a minimal `config.yaml` and writes your keys to `.env`. Takes about 2 minutes.
-
-   The wizard also lets you configure an optional web search provider, or skip it for now.
-
-   Run `make doctor` at any time to verify your setup and get actionable fix hints.
-
-   > **Advanced / manual configuration**: If you prefer to edit `config.yaml` directly, run `make config` instead to copy the full template. See `config.example.yaml` for the complete reference including CLI-backed providers (Codex CLI, Claude Code OAuth), OpenRouter, Responses API, and more.
-
-   <details>
-   <summary>Manual model configuration examples</summary>
-
-   ```yaml
-   models:
-     - name: gpt-4o
-       display_name: GPT-4o
-       use: langchain_openai:ChatOpenAI
-       model: gpt-4o
-       api_key: $OPENAI_API_KEY
-
-     - name: openrouter-gemini-2.5-flash
-       display_name: Gemini 2.5 Flash (OpenRouter)
-       use: langchain_openai:ChatOpenAI
-       model: google/gemini-2.5-flash-preview
-       api_key: $OPENROUTER_API_KEY
-       base_url: https://openrouter.ai/api/v1
-
-     - name: gpt-5-responses
-       display_name: GPT-5 (Responses API)
-       use: langchain_openai:ChatOpenAI
-       model: gpt-5
-       api_key: $OPENAI_API_KEY
-       use_responses_api: true
-       output_version: responses/v1
-
-     - name: qwen3-32b-vllm
-       display_name: Qwen3 32B (vLLM)
-       use: deerflow.models.vllm_provider:VllmChatModel
-       model: Qwen/Qwen3-32B
-       api_key: $VLLM_API_KEY
-       base_url: http://localhost:8000/v1
-       supports_thinking: true
-       when_thinking_enabled:
-         extra_body:
-           chat_template_kwargs:
-             enable_thinking: true
-   ```
-
-   OpenRouter and similar OpenAI-compatible gateways should be configured with `langchain_openai:ChatOpenAI` plus `base_url`. If you prefer a provider-specific environment variable name, point `api_key` at that variable explicitly (for example `api_key: $OPENROUTER_API_KEY`).
-
-   To route OpenAI models through `/v1/responses`, keep using `langchain_openai:ChatOpenAI` and set `use_responses_api: true` with `output_version: responses/v1`.
-
-   For vLLM 0.19.0, use `deerflow.models.vllm_provider:VllmChatModel`. For Qwen-style reasoning models, DeerFlow toggles reasoning with `extra_body.chat_template_kwargs.enable_thinking` and preserves vLLM's non-standard `reasoning` field across multi-turn tool-call conversations. Legacy `thinking` configs are normalized automatically for backward compatibility. Reasoning models may also require the server to be started with `--reasoning-parser ...`. If your local vLLM deployment accepts any non-empty API key, you can still set `VLLM_API_KEY` to a placeholder value.
-
-   CLI-backed provider examples:
-
-   ```yaml
-   models:
-     - name: gpt-5.4
-       display_name: GPT-5.4 (Codex CLI)
-       use: deerflow.models.openai_codex_provider:CodexChatModel
-       model: gpt-5.4
-       supports_thinking: true
-       supports_reasoning_effort: true
-
-     - name: claude-sonnet-4.6
-       display_name: Claude Sonnet 4.6 (Claude Code OAuth)
-       use: deerflow.models.claude_provider:ClaudeChatModel
-       model: claude-sonnet-4-6
-       max_tokens: 4096
-       supports_thinking: true
-   ```
-
-   - Codex CLI reads `~/.codex/auth.json`
-   - Claude Code accepts `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_CREDENTIALS_PATH`, or `~/.claude/.credentials.json`
-   - ACP agent entries are separate from model providers — if you configure `acp_agents.codex`, point it at a Codex ACP adapter such as `npx -y @zed-industries/codex-acp`
-   - On macOS, export Claude Code auth explicitly if needed:
-
-   ```bash
-   eval "$(python3 scripts/export_claude_code_oauth.py --print-export)"
-   ```
-
-   API keys can also be set manually in `.env` (recommended) or exported in your shell:
-
-   ```bash
-   OPENAI_API_KEY=your-openai-api-key
-   TAVILY_API_KEY=your-tavily-api-key
-   ```
-
-   </details>
 
 ### Running the Application
 
@@ -208,11 +110,11 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
 
 Use the table below as a practical starting point when choosing how to run DeerFlow:
 
-| Deployment target | Starting point | Recommended | Notes |
-|---------|-----------|------------|-------|
-| Local evaluation / `make dev` | 4 vCPU, 8 GB RAM, 20 GB free SSD | 8 vCPU, 16 GB RAM | Good for one developer or one light session with hosted model APIs. `2 vCPU / 4 GB` is usually not enough. |
-| Docker development / `make docker-start` | 4 vCPU, 8 GB RAM, 25 GB free SSD | 8 vCPU, 16 GB RAM | Image builds, bind mounts, and sandbox containers need more headroom than pure local dev. |
-| Long-running server / `make up` | 8 vCPU, 16 GB RAM, 40 GB free SSD | 16 vCPU, 32 GB RAM | Preferred for shared use, multi-agent runs, report generation, or heavier sandbox workloads. |
+| Deployment target                        | Starting point                    | Recommended        | Notes                                                                                                      |
+| ---------------------------------------- | --------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Local evaluation / `make dev`            | 4 vCPU, 8 GB RAM, 20 GB free SSD  | 8 vCPU, 16 GB RAM  | Good for one developer or one light session with hosted model APIs. `2 vCPU / 4 GB` is usually not enough. |
+| Docker development / `make docker-start` | 4 vCPU, 8 GB RAM, 25 GB free SSD  | 8 vCPU, 16 GB RAM  | Image builds, bind mounts, and sandbox containers need more headroom than pure local dev.                  |
+| Long-running server / `make up`          | 8 vCPU, 16 GB RAM, 40 GB free SSD | 16 vCPU, 32 GB RAM | Preferred for shared use, multi-agent runs, report generation, or heavier sandbox workloads.               |
 
 - These numbers cover DeerFlow itself. If you also host a local LLM, size that service separately.
 - Linux plus Docker is the recommended deployment target for a persistent server. macOS and Windows are best treated as development or evaluation environments.
@@ -233,7 +135,7 @@ Docker builds use the upstream `uv` registry by default. If you need faster mirr
 
 Backend processes automatically pick up `config.yaml` changes on the next config access, so model metadata updates do not require a manual restart during development.
 
-> [!TIP]
+> \[!TIP]
 > On Linux, if Docker-based commands fail with `permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock`, add your user to the `docker` group and re-login before retrying. See [CONTRIBUTING.md](CONTRIBUTING.md#linux-docker-daemon-permission-denied) for the full fix.
 
 **Production** (builds images locally, mounts runtime config and data):
@@ -243,7 +145,7 @@ make up     # Build images and start all production services
 make down   # Stop and remove containers
 ```
 
-Access: http://localhost:2026
+Access: <http://localhost:2026>
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed Docker development guide.
 
@@ -258,45 +160,40 @@ On Windows, run the local development flow from Git Bash. Native `cmd.exe` and P
    ```bash
    make check  # Verifies Node.js 22+, pnpm, uv, nginx
    ```
-
 2. **Install dependencies**:
    ```bash
    make install  # Install backend + frontend dependencies + pre-commit hooks
    ```
-
 3. **(Optional) Pre-pull sandbox image**:
    ```bash
    # Recommended if using Docker/Container-based sandbox
    make setup-sandbox
    ```
-
 4. **(Optional) Load sample memory data for local review**:
    ```bash
    python scripts/load_memory_sample.py
    ```
    This copies the sample fixture into the default local runtime memory file so reviewers can immediately test `Settings > Memory`.
-   See [backend/docs/MEMORY_SETTINGS_REVIEW.md](backend/docs/MEMORY_SETTINGS_REVIEW.md) for the shortest review flow.
-
+   See [backend/docs/MEMORY\_SETTINGS\_REVIEW.md](backend/docs/MEMORY_SETTINGS_REVIEW.md) for the shortest review flow.
 5. **Start services**:
    ```bash
    make dev
    ```
-
-6. **Access**: http://localhost:2026
+6. **Access**: <http://localhost:2026>
 
 #### Startup Modes
 
 DeerFlow runs the agent runtime inside the Gateway API. Development mode enables hot-reload; production mode uses a pre-built frontend.
 
-| | **Local Foreground** | **Local Daemon** | **Docker Dev** | **Docker Prod** |
-|---|---|---|---|---|
-| **Dev** | `./scripts/serve.sh --dev`<br/>`make dev` | `./scripts/serve.sh --dev --daemon`<br/>`make dev-daemon` | `./scripts/docker.sh start`<br/>`make docker-start` | — |
-| **Prod** | `./scripts/serve.sh --prod`<br/>`make start` | `./scripts/serve.sh --prod --daemon`<br/>`make start-daemon` | — | `./scripts/deploy.sh`<br/>`make up` |
+| <br />   | **Local Foreground**                  | **Local Daemon**                                      | **Docker Dev**                               | **Docker Prod**              |
+| -------- | ------------------------------------- | ----------------------------------------------------- | -------------------------------------------- | ---------------------------- |
+| **Dev**  | `./scripts/serve.sh --devmake dev`    | `./scripts/serve.sh --dev --daemonmake dev-daemon`    | `./scripts/docker.sh startmake docker-start` | —                            |
+| **Prod** | `./scripts/serve.sh --prodmake start` | `./scripts/serve.sh --prod --daemonmake start-daemon` | —                                            | `./scripts/deploy.shmake up` |
 
-| Action | Local | Docker Dev | Docker Prod |
-|---|---|---|---|
-| **Stop** | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
-| **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
+| Action      | Local                                  | Docker Dev                                 | Docker Prod                         |
+| ----------- | -------------------------------------- | ------------------------------------------ | ----------------------------------- |
+| **Stop**    | `./scripts/serve.sh --stopmake stop`   | `./scripts/docker.sh stopmake docker-stop` | `./scripts/deploy.sh downmake down` |
+| **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart`              | —                                   |
 
 Gateway owns `/api/langgraph/*` and translates those public LangGraph-compatible paths to its native `/api/*` routers behind nginx.
 
@@ -317,9 +214,11 @@ deploy.sh down
 ```
 
 ### Advanced
+
 #### Sandbox Mode
 
 DeerFlow supports multiple sandbox execution modes:
+
 - **Local Execution** (runs sandbox code directly on the host machine)
 - **Docker Execution** (runs sandbox code in isolated Docker containers)
 - **Docker Execution with Kubernetes** (runs sandbox code in Kubernetes pods via provisioner service)
@@ -338,16 +237,16 @@ See the [MCP Server Guide](backend/docs/MCP_SERVER.md) for detailed instructions
 
 DeerFlow supports receiving tasks from messaging apps. Channels auto-start when configured — no public IP required for any of them.
 
-| Channel | Transport | Difficulty |
-|---------|-----------|------------|
-| Telegram | Bot API (long-polling) | Easy |
-| Slack | Socket Mode | Moderate |
-| Feishu / Lark | WebSocket | Moderate |
-| WeChat | Tencent iLink (long-polling) | Moderate |
-| WeCom | WebSocket | Moderate |
-| DingTalk | Stream Push (WebSocket) | Moderate |
+| Channel       | Transport                    | Difficulty |
+| ------------- | ---------------------------- | ---------- |
+| Telegram      | Bot API (long-polling)       | Easy       |
+| Slack         | Socket Mode                  | Moderate   |
+| Feishu / Lark | WebSocket                    | Moderate   |
+| WeChat        | Tencent iLink (long-polling) | Moderate   |
+| WeCom         | WebSocket                    | Moderate   |
+| DingTalk      | Stream Push (WebSocket)      | Moderate   |
 
-**Configuration in `config.yaml`:**
+**Configuration in** **`config.yaml`:**
 
 ```yaml
 channels:
@@ -425,6 +324,7 @@ channels:
 ```
 
 Notes:
+
 - `assistant_id: lead_agent` calls the default LangGraph assistant directly.
 - If `assistant_id` is set to a custom agent name, DeerFlow still routes through `lead_agent` and injects that value as `agent_name`, so the custom agent's SOUL/config takes effect for IM channels.
 - IM channel workers call Gateway's LangGraph-compatible API internally and automatically attach process-local internal auth plus the CSRF cookie/header pair required for thread and run creation.
@@ -499,20 +399,19 @@ DINGTALK_CLIENT_SECRET=your_client_secret
 3. Copy the `Client ID` and `Client Secret`, set `DINGTALK_CLIENT_ID` and `DINGTALK_CLIENT_SECRET` in `.env`, and enable the channel in `config.yaml`.
 4. *(Optional)* To enable streaming AI Card replies (typewriter effect), create an **AI Card** template on the [DingTalk Card Platform](https://open.dingtalk.com/document/dingstart/typewriter-effect-streaming-ai-card), then set `card_template_id` in `config.yaml` to the template ID. You also need to apply for the `Card.Streaming.Write` and `Card.Instance.Write` permissions.
 
-
 When DeerFlow runs in Docker Compose, IM channels execute inside the `gateway` container. In that case, do not point `channels.langgraph_url` or `channels.gateway_url` at `localhost`; use container service names such as `http://gateway:8001/api` and `http://gateway:8001`, or set `DEER_FLOW_CHANNELS_LANGGRAPH_URL` and `DEER_FLOW_CHANNELS_GATEWAY_URL`.
 
 **Commands**
 
 Once a channel is connected, you can interact with DeerFlow directly from the chat:
 
-| Command | Description |
-|---------|-------------|
-| `/new` | Start a new conversation |
+| Command   | Description              |
+| --------- | ------------------------ |
+| `/new`    | Start a new conversation |
 | `/status` | Show current thread info |
-| `/models` | List available models |
-| `/memory` | View memory |
-| `/help` | Show help |
+| `/models` | List available models    |
+| `/memory` | View memory              |
+| `/help`   | Show help                |
 
 > Messages without a command prefix are treated as regular chat — DeerFlow creates a thread and responds conversationally.
 
@@ -606,6 +505,7 @@ npx skills add https://github.com/bytedance/deer-flow --skill claude-to-deerflow
 Then make sure DeerFlow is running (default at `http://localhost:2026`) and use the `/claude-to-deerflow` command in Claude Code.
 
 **What you can do**:
+
 - Send messages to DeerFlow and get streaming responses
 - Choose execution modes: flash (fast), standard, pro (planning), ultra (sub-agents)
 - Check DeerFlow health, list models/skills/agents
@@ -757,4 +657,4 @@ Your unwavering commitment and expertise have been the driving force behind Deer
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow&type=Date)](https://star-history.com/#bytedance/deer-flow&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow\&type=Date)](https://star-history.com/#bytedance/deer-flow\&Date)

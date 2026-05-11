@@ -1,6 +1,6 @@
 # DeerFlow - Unified Development Environment
 
-.PHONY: help config config-upgrade check install setup doctor dev dev-daemon start start-daemon stop up down clean docker-init docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway
+.PHONY: help config config-upgrade check install setup doctor dev dev-daemon start start-daemon stop up down clean docker-init docker-build docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway
 
 BASH ?= bash
 BACKEND_UV_RUN = cd backend && uv run
@@ -38,7 +38,8 @@ help:
 	@echo ""
 	@echo "Docker Development Commands:"
 	@echo "  make docker-init     - Pull the sandbox image"
-	@echo "  make docker-start    - Start Docker services (mode-aware from config.yaml, localhost:2026)"
+	@echo "  make docker-build    - Build Docker development images"
+	@echo "  make docker-start    - Start Docker services without rebuild (mode-aware from config.yaml, localhost:2026)"
 	@echo "  make docker-stop     - Stop Docker development services"
 	@echo "  make docker-logs     - View Docker development logs"
 	@echo "  make docker-logs-frontend - View Docker frontend logs"
@@ -151,6 +152,10 @@ clean: stop
 # Initialize Docker containers and install dependencies
 docker-init:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh init
+
+# Build Docker development images
+docker-build:
+	@DEER_FLOW_ROOT=$(PWD) docker compose -p deer-flow-dev -f docker/docker-compose-dev.yaml build frontend gateway
 
 # Start Docker development environment
 docker-start:

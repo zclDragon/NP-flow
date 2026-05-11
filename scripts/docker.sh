@@ -220,8 +220,8 @@ start() {
         fi
     fi
 
-    echo "Building and starting containers..."
-    cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
+    echo "Starting containers..."
+    cd "$DOCKER_DIR" && $COMPOSE_CMD up -d --remove-orphans $services
     echo ""
     echo "=========================================="
     echo "  DeerFlow Docker is starting!"
