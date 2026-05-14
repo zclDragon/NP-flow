@@ -126,8 +126,15 @@ services:
         UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
         UV_EXTRAS: ${UV_EXTRAS:-postgres}
     container_name: deer-flow-gateway
-    command: sh -c "cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --reload --reload-include='*.yaml .env' > /app/logs/gateway.log 2>&1"
+    # Startup logic lives in docker/dev-entrypoint.sh — UV_EXTRAS validation,
+    # `uv sync --all-packages`, .venv self-heal, and uvicorn handoff. Keeps
+    # this file readable and lets the script be linted (shellcheck-clean).
+    # See PR #2767 / Issue #2754.
+    command: ["sh", "/usr/local/bin/dev-entrypoint.sh"]
     volumes:
+      # Mount the dev entrypoint as a read-only file so edits to the script
+      # take effect on `make docker-restart` without requiring an image rebuild.
+      - ./dev-entrypoint.sh:/usr/local/bin/dev-entrypoint.sh:ro
       - ../backend/:/app/backend/
       # Preserve the .venv built during Docker image build — mounting the full backend/
       # directory above would otherwise shadow it with the (empty) host directory.
