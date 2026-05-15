@@ -16,6 +16,9 @@ const withNextra = nextra({});
 
 /** @type {import("next").NextConfig} */
 const config = {
+  // ✅ 允许所有来源访问开发环境热更新（webpack-hmr）
+  allowedDevOrigins: ['*'],
+
   i18n: {
     locales: ["en", "zh"],
     defaultLocale: "en",
