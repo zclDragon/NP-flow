@@ -152,9 +152,16 @@ clean: stop
 docker-init:
 	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh init
 
-# Start Docker development environment
+# 启动 Docker 开发环境
+# 会自动检测 config.yaml 中的数据库配置，如果使用 PostgreSQL 则自动设置 UV_EXTRAS=postgres
 docker-start:
-	@$(RUN_WITH_GIT_BASH) ./scripts/docker.sh start
+	@DB_BACKEND=$$(grep -A 20 "database:" config.yaml 2&gt;/dev/null | grep "backend:" | awk '{print $$2}' | head -1); \
+	if [ "$$DB_BACKEND" = "postgres" ]; then \
+		echo "检测到 PostgreSQL 数据库，使用 UV_EXTRAS=postgres 启动"; \
+		UV_EXTRAS=postgres $(RUN_WITH_GIT_BASH) ./scripts/docker.sh start; \
+	else \
+		$(RUN_WITH_GIT_BASH) ./scripts/docker.sh start; \
+	fi
 
 # Stop Docker development environment
 docker-stop:
@@ -174,10 +181,17 @@ docker-logs-gateway:
 # Production Docker Commands
 # ==========================================
 
-# Build and start production services
+# 构建并启动生产环境服务
+# 会自动检测 config.yaml 中的数据库配置，如果使用 PostgreSQL 则自动设置 UV_EXTRAS=postgres
 up:
-	@$(RUN_WITH_GIT_BASH) ./scripts/deploy.sh
+	@DB_BACKEND=$$(grep -A 20 "database:" config.yaml 2&gt;/dev/null | grep "backend:" | awk '{print $$2}' | head -1); \
+	if [ "$$DB_BACKEND" = "postgres" ]; then \
+		echo "检测到 PostgreSQL 数据库，使用 UV_EXTRAS=postgres 构建"; \
+		UV_EXTRAS=postgres $(RUN_WITH_GIT_BASH) ./scripts/deploy.sh; \
+	else \
+		$(RUN_WITH_GIT_BASH) ./scripts/deploy.sh; \
+	fi
 
-# Stop and remove production containers
+# 停止并移除生产环境容器
 down:
 	@$(RUN_WITH_GIT_BASH) ./scripts/deploy.sh down
