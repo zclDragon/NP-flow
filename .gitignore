@@ -61,3 +61,5 @@ config.yaml.bak
 .gstack/
 .worktrees
 *.zip
+config.yaml test
+.env test
