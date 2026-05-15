@@ -1,0 +1,110 @@
+{
+  "mcpInterceptors": [
+    "my_package.mcp.auth:build_auth_interceptor"
+  ],
+  "mcpServers": {
+    "filesystem": {
+      "enabled": false,
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/path/to/allowed/files"
+      ],
+      "env": {},
+      "description": "Provides filesystem access within allowed directories"
+    },
+    "github": {
+      "enabled": false,
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_TOKEN": "$GITHUB_TOKEN"
+      },
+      "description": "GitHub MCP server for repository operations"
+    },
+    "postgres": {
+      "enabled": true,
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://app_user:app_password@172.19.119.218:5433/Segmentrep",
+        "--schema=segmentrep_model"
+      ],
+      "env": {},
+      "description": "PostgreSQL database access"
+    }
+  },
+  "skills": {
+    "deep-research": {
+      "enabled": true
+    },
+    "find-skills": {
+      "enabled": false
+    },
+    "frontend-design": {
+      "enabled": false
+    },
+    "github-deep-research": {
+      "enabled": false
+    },
+    "np-ppt-generation": {
+      "enabled": true
+    },
+    "skill-creator": {
+      "enabled": false
+    },
+    "podcast-generation": {
+      "enabled": false
+    },
+    "surprise-me": {
+      "enabled": false
+    },
+    "vercel-deploy": {
+      "enabled": false
+    },
+    "video-generation": {
+      "enabled": false
+    },
+    "web-design-guidelines": {
+      "enabled": false
+    },
+    "claude-to-deerflow": {
+      "enabled": false
+    },
+    "data-analysis": {
+      "enabled": true
+    },
+    "newsletter-generation": {
+      "enabled": false
+    },
+    "code-documentation": {
+      "enabled": false
+    },
+    "segmentrep-ask-data": {
+      "enabled": true
+    },
+    "segmentrep-analysis-query": {
+      "enabled": true
+    },
+    "tuc-product-qa": {
+      "enabled": true
+    },
+    "chart-visualization": {
+      "enabled": true
+    },
+    "member-ops-excel-analyzer": {
+      "enabled": false
+    },
+    "member-ops-report-planner": {
+      "enabled": true
+    }
+  }
+}
