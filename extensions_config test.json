@@ -1,6 +1,5 @@
 {
   "mcpInterceptors": [
-    "my_package.mcp.auth:build_auth_interceptor"
   ],
   "mcpServers": {
     "filesystem": {
