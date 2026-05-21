@@ -60,7 +60,9 @@ config.yaml.bak
 /frontend/playwright-report/
 .gstack/
 .worktrees
+.trae
 *.zip
-config.yaml test
+config test.yaml
 .env test
+
 
