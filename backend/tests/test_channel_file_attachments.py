@@ -313,6 +313,91 @@ class TestInboundFileIngestion:
         assert not missing_target.exists()
         assert (uploads_dir / "victim.txt").is_symlink()
 
+    def test_infers_extension_from_content_when_filename_missing(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            thread_ts="message-1",
+            files=[{"type": "file", "url": "https://example.invalid/download"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"%PDF-1.7\ncontent"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        assert result == [
+            {
+                "filename": "message-1_0.pdf",
+                "size": len(b"%PDF-1.7\ncontent"),
+                "path": "/mnt/user-data/uploads/message-1_0.pdf",
+                "is_image": False,
+            }
+        ]
+        assert (uploads_dir / "message-1_0.pdf").read_bytes() == b"%PDF-1.7\ncontent"
+
+    def test_infers_filename_from_alternate_metadata_keys(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            thread_ts="message-1",
+            files=[{"type": "file", "file_name": "report.xlsx", "url": "https://example.invalid/download"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"xlsx data"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        assert result[0]["filename"] == "report.xlsx"
+        assert result[0]["path"] == "/mnt/user-data/uploads/report.xlsx"
+
+    def test_infers_extension_from_content_type_when_filename_missing(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            thread_ts="message-1",
+            files=[{"type": "file", "content_type": "text/csv; charset=utf-8", "url": "https://example.invalid/download"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"a,b\n1,2\n"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        assert result[0]["filename"] == "message-1_0.csv"
+        assert result[0]["path"] == "/mnt/user-data/uploads/message-1_0.csv"
+
     def test_hardlinked_existing_file_is_not_overwritten(self, tmp_path):
         from app.channels import manager
 

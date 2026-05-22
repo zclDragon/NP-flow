@@ -7,9 +7,12 @@ import logging
 import mimetypes
 import re
 import time
+import zipfile
 from collections.abc import Awaitable, Callable, Mapping
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 import httpx
 from langgraph_sdk.errors import ConflictError
@@ -48,6 +51,23 @@ CHANNEL_CAPABILITIES = {
 }
 
 InboundFileReader = Callable[[dict[str, Any], httpx.AsyncClient], Awaitable[bytes | None]]
+
+_INBOUND_FILENAME_KEYS = ("filename", "file_name", "name", "title", "original_filename")
+_INBOUND_CONTENT_TYPE_KEYS = ("content_type", "mime_type", "mimetype", "mime")
+_INBOUND_URL_KEYS = ("url", "full_url", "download_url", "source_url")
+_COMMON_MIME_EXTENSIONS = {
+    "application/pdf": ".pdf",
+    "application/json": ".json",
+    "application/msword": ".doc",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "text/csv": ".csv",
+    "text/markdown": ".md",
+    "text/plain": ".txt",
+}
 
 _METADATA_DROP_KEYS = frozenset({"raw_message", "ref_msg"})
 
@@ -430,6 +450,76 @@ def _prepare_artifact_delivery(
     return response_text, attachments
 
 
+def _first_text_value(source: Mapping[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = source.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _filename_from_url(source: Mapping[str, Any]) -> str:
+    raw_url = _first_text_value(source, _INBOUND_URL_KEYS)
+    if not raw_url:
+        return ""
+    basename = Path(unquote(urlparse(raw_url).path)).name
+    if basename and "." in basename:
+        return basename
+    return ""
+
+
+def _extension_from_content_type(source: Mapping[str, Any]) -> str:
+    content_type = _first_text_value(source, _INBOUND_CONTENT_TYPE_KEYS)
+    if not content_type:
+        return ""
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    if not media_type or media_type == "application/octet-stream":
+        return ""
+    return _COMMON_MIME_EXTENSIONS.get(media_type) or mimetypes.guess_extension(media_type) or ""
+
+
+def _extension_from_content(data: bytes, ftype: str) -> str:
+    if data.startswith(b"%PDF-"):
+        return ".pdf"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return ".gif"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return ".webp"
+    if data.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(BytesIO(data)) as archive:
+                names = set(archive.namelist())
+            if "word/document.xml" in names:
+                return ".docx"
+            if "xl/workbook.xml" in names:
+                return ".xlsx"
+            if "ppt/presentation.xml" in names:
+                return ".pptx"
+            return ".zip"
+        except zipfile.BadZipFile:
+            return ""
+    if ftype == "image":
+        return ".png"
+    return ""
+
+
+def _fallback_inbound_filename(file_info: Mapping[str, Any], data: bytes, ftype: str, prefix: str) -> str:
+    filename = _first_text_value(file_info, _INBOUND_FILENAME_KEYS)
+    if filename:
+        return filename
+
+    url_filename = _filename_from_url(file_info)
+    if url_filename:
+        return url_filename
+
+    ext = _extension_from_content_type(file_info) or _extension_from_content(data, ftype) or ".bin"
+    return f"{prefix}{ext}"
+
+
 async def _ingest_inbound_files(thread_id: str, msg: InboundMessage) -> list[dict[str, Any]]:
     if not msg.files:
         return []
@@ -474,10 +564,7 @@ async def _ingest_inbound_files(thread_id: str, msg: InboundMessage) -> list[dic
                 continue
 
             if not filename:
-                ext = ".bin"
-                if ftype == "image":
-                    ext = ".png"
-                filename = f"{msg.thread_ts or 'msg'}_{idx}{ext}"
+                filename = _fallback_inbound_filename(f, data, ftype, f"{msg.thread_ts or 'msg'}_{idx}")
 
             try:
                 safe_name = claim_unique_filename(normalize_filename(filename), seen_names)
