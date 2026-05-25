@@ -60,3 +60,8 @@ config.yaml.bak
 /frontend/playwright-report/
 .gstack/
 .worktrees
+.env test
+config test.yaml
+.trae/.ignore
+skills/public/data-analysis.zip
+skills/public/member-ops-report-planner.zip
