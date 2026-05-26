@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NP-flow make start 单机启动架构图</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f7fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      color: #1f2937;
+    }
+
+    .page {
+      width: 1500px;
+      min-height: 760px;
+      margin: 0 auto;
+      padding: 36px 48px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .canvas {
+      position: relative;
+      height: 610px;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .zone {
+      position: absolute;
+      border-radius: 20px;
+      border: 2px dashed #cbd5e1;
+      background: rgba(248, 250, 252, 0.75);
+      box-sizing: border-box;
+    }
+
+    .zone-title {
+      position: absolute;
+      top: 10px;
+      left: 18px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .box {
+      position: absolute;
+      min-width: 130px;
+      height: 58px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 700;
+      font-size: 14px;
+      box-sizing: border-box;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+      z-index: 2;
+    }
+
+    .small {
+      min-width: 116px;
+      height: 46px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .user {
+      background: #eef2ff;
+      color: #3730a3;
+      border: 2px solid #a5b4fc;
+    }
+
+    .nginx {
+      background: #fff7ed;
+      color: #c2410c;
+      border: 2px solid #fb923c;
+    }
+
+    .channel {
+      background: #fdf4ff;
+      color: #a21caf;
+      border: 2px solid #e879f9;
+    }
+
+    .front {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 2px solid #60a5fa;
+    }
+
+    .gateway {
+      background: #ecfdf5;
+      color: #047857;
+      border: 2px solid #34d399;
+    }
+
+    .agent {
+      background: #f0fdf4;
+      color: #15803d;
+      border: 2px dashed #22c55e;
+    }
+
+    .data {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 2px dashed #f87171;
+    }
+
+    .external {
+      background: #f5f3ff;
+      color: #6d28d9;
+      border: 2px dashed #a78bfa;
+    }
+
+    svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="title">NP-flow：make start 单机本地启动架构图</div>
+    <div class="subtitle">本机进程模式：Gateway + Frontend + Nginx 均运行在宿主机，不走 Docker Compose，不启动多 worker</div>
+
+    <div class="canvas">
+      <svg viewBox="0 0 1404 610" preserveAspectRatio="none">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8"></path>
+          </marker>
+        </defs>
+
+        <line x1="190" y1="170" x2="305" y2="170" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="435" y1="150" x2="780" y2="150" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="435" y1="190" x2="555" y2="270" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="190" y1="410" x2="335" y2="196" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="620" y1="328" x2="620" y2="380" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="685" y1="410" x2="780" y2="410" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="910" y1="410" x2="1000" y2="410" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="1065" y1="380" x2="1065" y2="325" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="1130" y1="295" x2="1210" y2="210" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+        <line x1="1130" y1="435" x2="1210" y2="395" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)" />
+
+        <text x="480" y="140" fill="#64748b" font-size="12">页面请求 /</text>
+        <text x="462" y="218" fill="#64748b" font-size="12">API 请求 /api/*</text>
+        <text x="210" y="300" fill="#64748b" font-size="12">消息回调 / WebSocket</text>
+        <text x="704" y="394" fill="#64748b" font-size="12">内部 runs.stream</text>
+        <text x="922" y="394" fill="#64748b" font-size="12">进入 Agent Runtime</text>
+      </svg>
+
+      <div class="zone" style="left: 42px; top: 86px; width: 405px; height: 420px;">
+        <div class="zone-title">用户访问层</div>
+      </div>
+
+      <div class="zone" style="left: 520px; top: 86px; width: 625px; height: 420px; border-color: #86efac; background: rgba(240, 253, 244, 0.7);">
+        <div class="zone-title">本机服务进程</div>
+      </div>
+
+      <div class="zone" style="left: 1190px; top: 86px; width: 170px; height: 420px; border-color: #fca5a5; background: rgba(254, 242, 242, 0.65);">
+        <div class="zone-title">数据 / 外部依赖</div>
+      </div>
+
+      <div class="box user" style="left: 60px; top: 138px;">浏览器<br>用户访问</div>
+      <div class="box nginx" style="left: 305px; top: 138px;">Nginx</div>
+      <div class="box channel" style="left: 60px; top: 380px;">企微等<br>Channel</div>
+      <div class="box gateway" style="left: 555px; top: 248px;">Gateway API<br>Uvicorn :8001</div>
+      <div class="box channel" style="left: 555px; top: 380px;">Channel<br>Manager</div>
+      <div class="box front" style="left: 780px; top: 120px;">Frontend<br>Next.js :3000</div>
+      <div class="box gateway small" style="left: 780px; top: 387px;">runs.stream<br>LangGraph API</div>
+      <div class="box agent" style="left: 1000px; top: 380px;">Embedded<br>Agent Runtime</div>
+      <div class="box agent small" style="left: 1007px; top: 260px;">Lead Agent<br>Custom Agent</div>
+      <div class="box data" style="left: 1210px; top: 180px;">PostgreSQL</div>
+      <div class="box external" style="left: 1210px; top: 365px;"> LLM API<br>大模型网关</div>
+
+    </div>
+  </div>
+</body>
+</html>

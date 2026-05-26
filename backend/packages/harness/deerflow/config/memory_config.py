@@ -57,7 +57,7 @@ class MemoryConfig(BaseModel):
     max_injection_tokens: int = Field(
         default=2000,
         ge=100,
-        le=8000,
+        le=80000,
         description="Maximum tokens to use for memory injection",
     )
 
