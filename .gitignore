@@ -61,7 +61,7 @@ config.yaml.bak
 .gstack/
 .worktrees
 .env test
-config test.yaml
+config test*.yaml
 .trae/.ignore
 skills/public/data-analysis.zip
 skills/public/member-ops-report-planner.zip
