@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
+import os
 import re
+import stat
 import time
 import zipfile
 from collections.abc import Awaitable, Callable, Mapping
@@ -218,6 +220,19 @@ def _guess_inbound_filename(file_info: Mapping[str, Any], data: bytes, ftype: st
 
     ext = _extension_from_content_type(file_info) or _extension_from_content(data, ftype) or ".bin"
     return f"{fallback_stem}{ext}"
+
+
+def _make_inbound_file_sandbox_readable(file_path: os.PathLike[str] | str) -> None:
+    try:
+        file_stat = os.lstat(file_path)
+        if stat.S_ISLNK(file_stat.st_mode):
+            logger.warning("[Manager] skipping sandbox chmod for symlinked inbound upload path: %s", file_path)
+            return
+        readable_mode = stat.S_IMODE(file_stat.st_mode) | stat.S_IRGRP | stat.S_IROTH
+        chmod_kwargs = {"follow_symlinks": False} if os.chmod in os.supports_follow_symlinks else {}
+        os.chmod(file_path, readable_mode, **chmod_kwargs)
+    except OSError:
+        logger.warning("[Manager] failed to adjust inbound upload permissions: %s", file_path, exc_info=True)
 
 
 INBOUND_FILE_READERS: dict[str, InboundFileReader] = {}
@@ -637,6 +652,7 @@ async def _ingest_inbound_files(thread_id: str, msg: InboundMessage) -> list[dic
             dest = uploads_dir / safe_name
             try:
                 dest = write_upload_file_no_symlink(uploads_dir, safe_name, data)
+                _make_inbound_file_sandbox_readable(dest)
             except UnsafeUploadPathError:
                 logger.warning("[Manager] skipping inbound file with unsafe destination: %s", safe_name)
                 continue

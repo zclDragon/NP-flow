@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import stat
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -402,6 +403,34 @@ class TestInboundFileIngestion:
 
         assert result[0]["filename"] == "report.xlsx"
         assert result[0]["path"] == "/mnt/user-data/uploads/report.xlsx"
+
+    def test_makes_ingested_file_readable_by_sandbox(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            files=[{"type": "file", "filename": "report.pdf", "url": "https://example.invalid/report.pdf"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"%PDF-1.7\ncontent"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        file_path = uploads_dir / result[0]["filename"]
+        mode = stat.S_IMODE(file_path.stat().st_mode)
+        assert mode & stat.S_IRUSR
+        assert mode & stat.S_IRGRP
+        assert mode & stat.S_IROTH
 
 
 # ---------------------------------------------------------------------------
