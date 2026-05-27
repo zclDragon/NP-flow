@@ -2048,6 +2048,283 @@ class TestFeishuChannel:
 
 
 class TestWeComChannel:
+    def test_start_registers_voice_and_video_handlers(self, monkeypatch):
+        from app.channels.wecom import WeComChannel
+
+        class FakeWSClient:
+            handlers = {}
+
+            def __init__(self, options):
+                self.options = options
+
+            def on(self, name, handler):
+                self.handlers[name] = handler
+
+            async def connect(self):
+                await asyncio.sleep(3600)
+
+        fake_aibot = SimpleNamespace(
+            WSClient=FakeWSClient,
+            WSClientOptions=lambda **kwargs: kwargs,
+        )
+        monkeypatch.setitem(__import__("sys").modules, "aibot", fake_aibot)
+
+        async def go():
+            FakeWSClient.handlers = {}
+            bus = MessageBus()
+            channel = WeComChannel(bus, config={"bot_id": "bot-1", "bot_secret": "secret-1"})
+
+            await channel.start()
+
+            assert "message" in FakeWSClient.handlers
+            assert "message.voice" in FakeWSClient.handlers
+            assert "message.video" in FakeWSClient.handlers
+
+            await channel.stop()
+
+        _run(go())
+
+    def test_parse_wecom_inbound_text_quote_and_files(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "text": {"content": "看下这个"},
+                    "quote": {
+                        "msgtype": "file",
+                        "file": {
+                            "url": "https://example.com/file.zip",
+                            "aeskey": "key-1",
+                        },
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "看下这个\nQuote file: see uploaded file attachment."
+        assert inbound.files == [{"type": "file", "url": "https://example.com/file.zip", "aeskey": "key-1"}]
+
+    def test_parse_wecom_inbound_mixed_and_quote_text(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "mixed": {
+                        "msg_item": [
+                            {"msgtype": "text", "text": {"content": "正文"}},
+                            {
+                                "msgtype": "image",
+                                "image": {
+                                    "url": "https://example.com/image.png",
+                                    "aeskey": "key-2",
+                                },
+                            },
+                        ]
+                    },
+                    "quote": {
+                        "msgtype": "text",
+                        "text": {"content": "历史文本"},
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "正文\nQuote message: 历史文本"
+        assert inbound.files == [{"type": "image", "url": "https://example.com/image.png", "aeskey": "key-2"}]
+
+    def test_parse_wecom_inbound_voice(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "msgtype": "voice",
+                    "voice": {
+                        "url": "https://example.com/audio.amr",
+                        "aeskey": "key-voice",
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "（receive voice）"
+        assert inbound.files == [{"type": "voice", "url": "https://example.com/audio.amr", "aeskey": "key-voice"}]
+
+    def test_parse_wecom_inbound_voice_content(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "msgtype": "voice",
+                    "voice": {
+                        "content": "帮我看一下这个项目",
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "Voice message: 帮我看一下这个项目"
+        assert inbound.files == []
+
+    def test_parse_wecom_inbound_quote_voice_content(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "text": {"content": "这个？"},
+                    "quote": {
+                        "msgtype": "voice",
+                        "voice": {
+                            "content": "帮我看一下这个项目",
+                        },
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "这个？\nQuote message: Voice message: 帮我看一下这个项目"
+        assert inbound.files == []
+
+    def test_parse_wecom_inbound_voice_without_url(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "msgtype": "voice",
+                    "voice": {
+                        "duration": 3,
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "（receive voice）"
+        assert inbound.files == []
+
+    def test_parse_wecom_inbound_audio_generic_type(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "msgtype": "audio",
+                    "audio": {
+                        "mediaUrl": "https://example.com/audio.mp3",
+                        "aesKey": "key-audio",
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "（receive voice）"
+        assert inbound.files == [{"type": "audio", "url": "https://example.com/audio.mp3", "aeskey": "key-audio"}]
+
+    def test_parse_wecom_inbound_video_quote(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "text": {"content": "看视频"},
+                    "quote": {
+                        "msgtype": "video",
+                        "video": {
+                            "url": "https://example.com/video.mp4",
+                            "aeskey": "key-video",
+                        },
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "看视频\nQuote file: see uploaded file attachment."
+        assert inbound.files == [{"type": "video", "url": "https://example.com/video.mp4", "aeskey": "key-video"}]
+
+    def test_parse_wecom_inbound_quote_mixed_file(self):
+        from app.channels.wecom import _parse_wecom_inbound
+
+        inbound = _parse_wecom_inbound(
+            {
+                "body": {
+                    "text": {"content": "处理引用"},
+                    "quote": {
+                        "msgtype": "mixed",
+                        "mixed": {
+                            "msg_item": [
+                                {"msgtype": "text", "text": {"content": "引用说明"}},
+                                {
+                                    "msgtype": "file",
+                                    "file": {
+                                        "url": "https://example.com/report.pptx",
+                                        "aeskey": "key-3",
+                                        "filename": "report.pptx",
+                                    },
+                                },
+                            ]
+                        },
+                    },
+                }
+            }
+        )
+
+        assert inbound is not None
+        assert inbound.text == "处理引用\nQuote message: 引用说明\nQuote file: see uploaded file attachment."
+        assert inbound.files == [
+            {"type": "file", "url": "https://example.com/report.pptx", "aeskey": "key-3", "filename": "report.pptx"}
+        ]
+
+    def test_on_ws_text_includes_quoted_file_as_inbound_file(self, monkeypatch):
+        from app.channels.wecom import WeComChannel
+
+        async def go():
+            bus = MessageBus()
+            bus.publish_inbound = AsyncMock()
+            channel = WeComChannel(bus, config={})
+            channel._ws_client = SimpleNamespace(reply_stream=AsyncMock())
+
+            monkeypatch.setitem(
+                __import__("sys").modules,
+                "aibot",
+                SimpleNamespace(generate_req_id=lambda prefix: "stream-1"),
+            )
+
+            frame = {
+                "body": {
+                    "msgid": "msg-1",
+                    "from": {"userid": "user-1"},
+                    "text": {"content": "这里是啥"},
+                    "quote": {
+                        "msgtype": "file",
+                        "file": {
+                            "url": "https://example.com/file",
+                            "aeskey": "key-1",
+                        },
+                    },
+                }
+            }
+
+            await channel._on_ws_text(frame)
+
+            bus.publish_inbound.assert_awaited_once()
+            inbound = bus.publish_inbound.await_args.args[0]
+            assert inbound.text == "这里是啥\nQuote file: see uploaded file attachment."
+            assert inbound.files == [{"type": "file", "url": "https://example.com/file", "aeskey": "key-1"}]
+
+        _run(go())
+
     def test_publish_ws_inbound_starts_stream_and_publishes_message(self, monkeypatch):
         from app.channels.wecom import WeComChannel
 

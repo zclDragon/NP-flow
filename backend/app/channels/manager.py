@@ -7,7 +7,9 @@ import logging
 import mimetypes
 import re
 import time
+import zipfile
 from collections.abc import Awaitable, Callable, Mapping
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
@@ -51,8 +53,55 @@ CHANNEL_CAPABILITIES = {
 InboundFileReader = Callable[[dict[str, Any], httpx.AsyncClient], Awaitable[bytes | None]]
 
 _METADATA_DROP_KEYS = frozenset({"raw_message", "ref_msg"})
-_INBOUND_FILENAME_KEYS = ("filename", "file_name", "name", "title", "original_filename")
+_INBOUND_FILENAME_KEYS = ("filename", "file_name", "fileName", "name", "title", "original_filename")
 _INBOUND_CONTENT_TYPE_KEYS = ("content_type", "mime_type", "mimetype", "mime")
+_INBOUND_URL_KEYS = ("url", "full_url", "download_url", "source_url")
+_COMMON_MIME_EXTENSIONS = {
+    "application/gzip": ".gz",
+    "application/json": ".json",
+    "application/msword": ".doc",
+    "application/pdf": ".pdf",
+    "application/rtf": ".rtf",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/x-7z-compressed": ".7z",
+    "application/x-bzip2": ".bz2",
+    "application/x-rar-compressed": ".rar",
+    "application/x-xz": ".xz",
+    "application/zip": ".zip",
+    "audio/aac": ".aac",
+    "audio/flac": ".flac",
+    "audio/midi": ".mid",
+    "audio/mp4": ".m4a",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/webm": ".webm",
+    "image/avif": ".avif",
+    "image/bmp": ".bmp",
+    "image/gif": ".gif",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/svg+xml": ".svg",
+    "image/tiff": ".tiff",
+    "image/webp": ".webp",
+    "text/csv": ".csv",
+    "text/html": ".html",
+    "text/markdown": ".md",
+    "text/plain": ".txt",
+    "text/xml": ".xml",
+    "video/mp2t": ".ts",
+    "video/mp4": ".mp4",
+    "video/mpeg": ".mpeg",
+    "video/ogg": ".ogv",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "video/x-matroska": ".mkv",
+    "video/x-msvideo": ".avi",
+}
 
 
 def _slim_metadata(meta: dict[str, Any]) -> dict[str, Any]:
@@ -68,25 +117,107 @@ def _first_text_value(source: Mapping[str, Any], keys: tuple[str, ...]) -> str:
     return ""
 
 
+def _filename_from_url(source: Mapping[str, Any]) -> str:
+    raw_url = _first_text_value(source, _INBOUND_URL_KEYS)
+    if not raw_url:
+        return ""
+    basename = Path(unquote(urlparse(raw_url).path)).name
+    if basename and "." in basename:
+        return basename
+    return ""
+
+
+def _extension_from_content_type(source: Mapping[str, Any]) -> str:
+    content_type = _first_text_value(source, _INBOUND_CONTENT_TYPE_KEYS)
+    if not content_type:
+        return ""
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    if not media_type or media_type == "application/octet-stream":
+        return ""
+    return _COMMON_MIME_EXTENSIONS.get(media_type) or mimetypes.guess_extension(media_type) or ""
+
+
+def _extension_from_content(data: bytes, ftype: str) -> str:
+    if data.startswith(b"%PDF-"):
+        return ".pdf"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if data.startswith(b"GIF87a") or data.startswith(b"GIF89a"):
+        return ".gif"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return ".webp"
+    if data.startswith(b"BM"):
+        return ".bmp"
+    if data.startswith(b"II*\x00") or data.startswith(b"MM\x00*"):
+        return ".tiff"
+    if data.startswith(b"\x00\x00\x00") and data[4:8] == b"ftyp":
+        brand = data[8:12]
+        if brand in {b"avif", b"avis"}:
+            return ".avif"
+        if brand in {b"M4A ", b"M4B ", b"M4P "}:
+            return ".m4a"
+        if brand in {b"qt  "}:
+            return ".mov"
+        return ".mp4"
+    if data.startswith(b"\x1aE\xdf\xa3"):
+        return ".mkv"
+    if data.startswith(b"RIFF") and data[8:12] == b"AVI ":
+        return ".avi"
+    if data.startswith(b"OggS"):
+        return ".ogg"
+    if data.startswith(b"ID3") or (len(data) >= 2 and data[0] == 0xFF and data[1] & 0xE0 == 0xE0):
+        return ".mp3"
+    if data.startswith(b"fLaC"):
+        return ".flac"
+    if data.startswith(b"RIFF") and data[8:12] == b"WAVE":
+        return ".wav"
+    if data.startswith(b"%!PS-Adobe-"):
+        return ".ps"
+    if data.startswith(b"{\\rtf"):
+        return ".rtf"
+    if data.startswith(b"Rar!\x1a\x07"):
+        return ".rar"
+    if data.startswith(b"7z\xbc\xaf\x27\x1c"):
+        return ".7z"
+    if data.startswith(b"\x1f\x8b"):
+        return ".gz"
+    if data.startswith(b"BZh"):
+        return ".bz2"
+    if data.startswith(b"\xfd7zXZ\x00"):
+        return ".xz"
+    if data.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(BytesIO(data)) as archive:
+                names = set(archive.namelist())
+            if "word/document.xml" in names:
+                return ".docx"
+            if "xl/workbook.xml" in names:
+                return ".xlsx"
+            if "ppt/presentation.xml" in names:
+                return ".pptx"
+            if "META-INF/MANIFEST.MF" in names:
+                return ".jar"
+            return ".zip"
+        except zipfile.BadZipFile:
+            return ""
+    if ftype == "image":
+        return ".png"
+    return ""
+
+
 def _guess_inbound_filename(file_info: Mapping[str, Any], data: bytes, ftype: str, fallback_stem: str) -> str:
     filename = _first_text_value(file_info, _INBOUND_FILENAME_KEYS)
     if filename:
         return filename
 
-    url = _first_text_value(file_info, ("url", "full_url", "download_url", "source_url"))
-    url_name = Path(unquote(urlparse(url).path)).name if url else ""
-    if url_name and "." in url_name:
-        return url_name
+    url_filename = _filename_from_url(file_info)
+    if url_filename:
+        return url_filename
 
-    content_type = _first_text_value(file_info, _INBOUND_CONTENT_TYPE_KEYS).split(";", 1)[0].strip().lower()
-    ext = ""
-    if content_type and content_type != "application/octet-stream":
-        ext = mimetypes.guess_extension(content_type) or ""
-    if not ext and data.startswith(b"%PDF-"):
-        ext = ".pdf"
-    if not ext and ftype == "image":
-        ext = ".png"
-    return f"{fallback_stem}{ext or '.bin'}"
+    ext = _extension_from_content_type(file_info) or _extension_from_content(data, ftype) or ".bin"
+    return f"{fallback_stem}{ext}"
 
 
 INBOUND_FILE_READERS: dict[str, InboundFileReader] = {}

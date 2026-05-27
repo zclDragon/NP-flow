@@ -5,6 +5,7 @@ import base64
 import hashlib
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any, cast
 
 from app.channels.base import Channel
@@ -18,6 +19,16 @@ from app.channels.message_bus import (
 logger = logging.getLogger(__name__)
 
 _WECOM_FILE_METADATA_KEYS = ("filename", "file_name", "name", "title", "content_type", "mime_type", "mimetype", "mime")
+_WECOM_FILE_URL_KEYS = ("url", "download_url", "downloadUrl", "media_url", "mediaUrl", "voice_url", "voiceUrl", "video_url", "videoUrl")
+_WECOM_FILE_AESKEY_KEYS = ("aeskey", "aes_key", "aesKey")
+_WECOM_FILE_MSG_TYPES = {"image", "file", "voice", "audio", "video"}
+_WECOM_SPECIFIC_EVENT_MSG_TYPES = {"text", "image", "mixed", "voice", "file"}
+
+
+@dataclass
+class WeComInbound:
+    text: str
+    files: list[dict[str, Any]]
 
 
 def _extract_wecom_file_metadata(payload: dict[str, Any]) -> dict[str, Any]:
@@ -26,6 +37,133 @@ def _extract_wecom_file_metadata(payload: dict[str, Any]) -> dict[str, Any]:
         for key in _WECOM_FILE_METADATA_KEYS
         if isinstance((value := payload.get(key)), str) and value.strip()
     }
+
+
+def _first_wecom_text_value(payload: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _wecom_file_from_payload(item_type: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    url = _first_wecom_text_value(payload, _WECOM_FILE_URL_KEYS)
+    aeskey = _first_wecom_text_value(payload, _WECOM_FILE_AESKEY_KEYS)
+    if not url:
+        return None
+    return {
+        "type": item_type,
+        "url": url,
+        "aeskey": aeskey or None,
+        **_extract_wecom_file_metadata(payload),
+    }
+
+
+def _wecom_media_placeholder(item_type: str) -> str:
+    if item_type in {"voice", "audio"}:
+        return "（receive voice）"
+    if item_type == "video":
+        return "（receive video）"
+    return "（receive image/file）"
+
+
+def _wecom_media_text(item_type: str, payload: dict[str, Any]) -> str:
+    content = _first_wecom_text_value(payload, ("content", "text", "recognition"))
+    if not content:
+        return ""
+    if item_type in {"voice", "audio"}:
+        return f"Voice message: {content}"
+    return content
+
+
+def _extract_wecom_mixed_items(items: Any) -> tuple[list[str], list[dict[str, Any]]]:
+    if not isinstance(items, list):
+        return [], []
+
+    parts: list[str] = []
+    files: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_type = item.get("msgtype")
+        if item_type == "text":
+            content = (((item or {}).get("text") or {}).get("content") or "").strip()
+            if content:
+                parts.append(content)
+        elif item_type in _WECOM_FILE_MSG_TYPES:
+            payload = item.get(item_type) or {}
+            media_text = _wecom_media_text(item_type, payload) if isinstance(payload, dict) else ""
+            if media_text:
+                parts.append(media_text)
+            if isinstance(payload, dict) and (file_info := _wecom_file_from_payload(item_type, payload)):
+                files.append(file_info)
+            elif item_type in {"voice", "audio", "video"} and not media_text:
+                parts.append(_wecom_media_placeholder(item_type))
+    return parts, files
+
+
+def _extract_wecom_body_content(
+    body: dict[str, Any],
+    *,
+    include_file_placeholder: bool = True,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    msgtype = body.get("msgtype")
+    parts: list[str] = []
+    files: list[dict[str, Any]] = []
+
+    text = ((body.get("text") or {}).get("content") or "").strip()
+    if text:
+        parts.append(text)
+
+    for item_type in _WECOM_FILE_MSG_TYPES:
+        payload = body.get(item_type) or {}
+        media_text = _wecom_media_text(item_type, payload) if isinstance(payload, dict) else ""
+        if media_text:
+            parts.append(media_text)
+        if isinstance(payload, dict) and (file_info := _wecom_file_from_payload(item_type, payload)):
+            files.append(file_info)
+        elif msgtype == item_type and item_type in {"voice", "audio", "video"} and not media_text:
+            parts.append(_wecom_media_placeholder(item_type))
+
+    mixed = body.get("mixed") or {}
+    mixed_parts, mixed_files = _extract_wecom_mixed_items(mixed.get("msg_item") if isinstance(mixed, dict) else None)
+    parts.extend(mixed_parts)
+    files.extend(mixed_files)
+
+    if include_file_placeholder and msgtype in _WECOM_FILE_MSG_TYPES and not parts and files:
+        parts.append(_wecom_media_placeholder(msgtype))
+    return parts, files
+
+
+def _extract_wecom_quote_content(body: dict[str, Any]) -> tuple[list[str], list[dict[str, Any]]]:
+    quote_obj = body.get("quote") or {}
+    if not isinstance(quote_obj, dict):
+        return [], []
+
+    quote_parts, quote_files = _extract_wecom_body_content(quote_obj, include_file_placeholder=False)
+    parts = [f"Quote message: {part}" for part in quote_parts]
+    if quote_files:
+        parts.append("Quote file: see uploaded file attachment.")
+    return parts, quote_files
+
+
+def _parse_wecom_inbound(frame: dict[str, Any]) -> WeComInbound | None:
+    body = frame.get("body", {}) or {}
+    if not isinstance(body, dict):
+        return None
+
+    parts, files = _extract_wecom_body_content(body)
+    quote_parts, quote_files = _extract_wecom_quote_content(body)
+    parts.extend(quote_parts)
+    files.extend(quote_files)
+
+    text = "\n".join(part for part in parts if part).strip()
+    if not text and files:
+        text = "（receive image/file）"
+    if not text and not files:
+        return None
+    return WeComInbound(text=text, files=files)
 
 
 class WeComChannel(Channel):
@@ -84,10 +222,13 @@ class WeComChannel(Channel):
             return
         else:
             self._ws_client = WSClient(WSClientOptions(bot_id=self._bot_id, secret=self._bot_secret, logger=logger))
+            self._ws_client.on("message", self._on_ws_message)
             self._ws_client.on("message.text", self._on_ws_text)
             self._ws_client.on("message.mixed", self._on_ws_mixed)
             self._ws_client.on("message.image", self._on_ws_image)
             self._ws_client.on("message.file", self._on_ws_file)
+            self._ws_client.on("message.voice", self._on_ws_voice)
+            self._ws_client.on("message.video", self._on_ws_video)
             self._ws_task = asyncio.create_task(self._ws_client.connect())
 
             self._running = True
@@ -182,86 +323,46 @@ class WeComChannel(Channel):
             logger.exception("[WeCom] failed to upload/send file via ws: %s", attachment.filename)
             return False
 
-    async def _on_ws_text(self, frame: dict[str, Any]) -> None:
+    async def _on_ws_message(self, frame: dict[str, Any]) -> None:
         body = frame.get("body", {}) or {}
-        text = ((body.get("text") or {}).get("content") or "").strip()
-        quote = body.get("quote", {}).get("text", {}).get("content", "").strip()
-        if not text and not quote:
+        msgtype = body.get("msgtype") if isinstance(body, dict) else None
+        if msgtype in _WECOM_SPECIFIC_EVENT_MSG_TYPES:
             return
-        await self._publish_ws_inbound(frame, text + (f"\nQuote message: {quote}" if quote else ""))
+        await self._publish_parsed_ws_inbound(frame)
+
+    async def _on_ws_text(self, frame: dict[str, Any]) -> None:
+        await self._publish_parsed_ws_inbound(frame)
 
     async def _on_ws_mixed(self, frame: dict[str, Any]) -> None:
-        body = frame.get("body", {}) or {}
-        mixed = body.get("mixed") or {}
-        items = mixed.get("msg_item") or []
-        parts: list[str] = []
-        files: list[dict[str, Any]] = []
-        for item in items:
-            item_type = (item or {}).get("msgtype")
-            if item_type == "text":
-                content = (((item or {}).get("text") or {}).get("content") or "").strip()
-                if content:
-                    parts.append(content)
-            elif item_type in ("image", "file"):
-                payload = (item or {}).get(item_type) or {}
-                url = payload.get("url")
-                aeskey = payload.get("aeskey")
-                if isinstance(url, str) and url:
-                    files.append(
-                        {
-                            "type": item_type,
-                            "url": url,
-                            "aeskey": (aeskey if isinstance(aeskey, str) and aeskey else None),
-                            **_extract_wecom_file_metadata(payload),
-                        }
-                    )
-        text = "\n\n".join(parts).strip()
-        if not text and not files:
-            return
-        if not text:
-            text = "（receive image/file）"
-        await self._publish_ws_inbound(frame, text, files=files)
+        await self._publish_parsed_ws_inbound(frame)
 
     async def _on_ws_image(self, frame: dict[str, Any]) -> None:
-        body = frame.get("body", {}) or {}
-        image = body.get("image") or {}
-        url = image.get("url")
-        aeskey = image.get("aeskey")
-        if not isinstance(url, str) or not url:
-            return
-        await self._publish_ws_inbound(
-            frame,
-            "（receive image ）",
-            files=[
-                {
-                    "type": "image",
-                    "url": url,
-                    "aeskey": aeskey if isinstance(aeskey, str) and aeskey else None,
-                    **_extract_wecom_file_metadata(image),
-                }
-            ],
-        )
+        await self._publish_parsed_ws_inbound(frame)
 
     async def _on_ws_file(self, frame: dict[str, Any]) -> None:
+        await self._publish_parsed_ws_inbound(frame)
+
+    async def _on_ws_voice(self, frame: dict[str, Any]) -> None:
+        await self._publish_parsed_ws_inbound(frame)
+
+    async def _on_ws_video(self, frame: dict[str, Any]) -> None:
+        await self._publish_parsed_ws_inbound(frame)
+
+    async def _publish_parsed_ws_inbound(self, frame: dict[str, Any]) -> None:
         body = frame.get("body", {}) or {}
-        file_obj = body.get("file") or {}
-        logger.info("[WeCom] inbound file keys: %s", sorted(file_obj.keys()))
-        url = file_obj.get("url")
-        aeskey = file_obj.get("aeskey")
-        if not isinstance(url, str) or not url:
+        msgtype = body.get("msgtype") if isinstance(body, dict) else None
+        if msgtype in {"voice", "audio", "video"}:
+            payload = body.get(msgtype) if isinstance(body, dict) else None
+            logger.info(
+                "[WeCom] inbound %s keys: %s",
+                msgtype,
+                sorted(payload.keys()) if isinstance(payload, dict) else [],
+            )
+        inbound = _parse_wecom_inbound(frame)
+        if not inbound:
+            logger.info("[WeCom] ignored inbound msgtype=%s: no text/files", msgtype)
             return
-        await self._publish_ws_inbound(
-            frame,
-            "（receive file）",
-            files=[
-                {
-                    "type": "file",
-                    "url": url,
-                    "aeskey": aeskey if isinstance(aeskey, str) and aeskey else None,
-                    **_extract_wecom_file_metadata(file_obj),
-                }
-            ],
-        )
+        await self._publish_ws_inbound(frame, inbound.text, files=inbound.files)
 
     async def _publish_ws_inbound(
         self,
