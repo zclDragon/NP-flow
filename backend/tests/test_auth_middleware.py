@@ -188,6 +188,33 @@ def test_protected_post_with_internal_auth_header_passes():
     assert res.status_code == 200
 
 
+def test_internal_auth_header_is_stable_for_same_jwt_secret():
+    from app.gateway.auth.config import AuthConfig, set_auth_config
+    from app.gateway.internal_auth import create_internal_auth_headers, is_valid_internal_auth_token
+
+    set_auth_config(AuthConfig(jwt_secret="stable-secret-for-internal-auth-min32"))
+    first = create_internal_auth_headers()["X-DeerFlow-Internal-Token"]
+    set_auth_config(AuthConfig(jwt_secret="stable-secret-for-internal-auth-min32"))
+    second = create_internal_auth_headers()["X-DeerFlow-Internal-Token"]
+
+    assert first == second
+    assert is_valid_internal_auth_token(first)
+
+
+def test_internal_auth_header_changes_with_jwt_secret():
+    from app.gateway.auth.config import AuthConfig, set_auth_config
+    from app.gateway.internal_auth import create_internal_auth_headers, is_valid_internal_auth_token
+
+    set_auth_config(AuthConfig(jwt_secret="first-secret-for-internal-auth-min32"))
+    first = create_internal_auth_headers()["X-DeerFlow-Internal-Token"]
+    set_auth_config(AuthConfig(jwt_secret="second-secret-for-internal-auth-min32"))
+    second = create_internal_auth_headers()["X-DeerFlow-Internal-Token"]
+
+    assert first != second
+    assert not is_valid_internal_auth_token(first)
+    assert is_valid_internal_auth_token(second)
+
+
 # ── Method matrix: PUT/DELETE/PATCH also protected ────────────────────────
 
 

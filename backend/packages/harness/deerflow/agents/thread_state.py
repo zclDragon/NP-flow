@@ -1,6 +1,7 @@
 from typing import Annotated, NotRequired, TypedDict
 
 from langchain.agents import AgentState
+from langchain.agents.middleware.todo import Todo
 
 
 class SandboxState(TypedDict):
@@ -45,7 +46,7 @@ def merge_viewed_images(existing: dict[str, ViewedImageData] | None, new: dict[s
     return {**existing, **new}
 
 
-def merge_todos(existing: list | None, new: list | None) -> list | None:
+def merge_todos(existing: list[Todo] | None, new: list[Todo] | None) -> list[Todo] | None:
     """Reducer for todos list - keeps the last non-None value.
 
     Semantics:
@@ -63,6 +64,6 @@ class ThreadState(AgentState):
     thread_data: NotRequired[ThreadDataState | None]
     title: NotRequired[str | None]
     artifacts: Annotated[list[str], merge_artifacts]
-    todos: Annotated[list | None, merge_todos]
+    todos: Annotated[list[Todo] | None, merge_todos]
     uploaded_files: NotRequired[list[dict] | None]
     viewed_images: Annotated[dict[str, ViewedImageData], merge_viewed_images]  # image_path -> {base64, mime_type}
