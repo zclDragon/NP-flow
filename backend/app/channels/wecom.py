@@ -17,6 +17,16 @@ from app.channels.message_bus import (
 
 logger = logging.getLogger(__name__)
 
+_WECOM_FILE_METADATA_KEYS = ("filename", "file_name", "name", "title", "content_type", "mime_type", "mimetype", "mime")
+
+
+def _extract_wecom_file_metadata(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value.strip()
+        for key in _WECOM_FILE_METADATA_KEYS
+        if isinstance((value := payload.get(key)), str) and value.strip()
+    }
+
 
 class WeComChannel(Channel):
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
@@ -202,6 +212,7 @@ class WeComChannel(Channel):
                             "type": item_type,
                             "url": url,
                             "aeskey": (aeskey if isinstance(aeskey, str) and aeskey else None),
+                            **_extract_wecom_file_metadata(payload),
                         }
                     )
         text = "\n\n".join(parts).strip()
@@ -226,6 +237,7 @@ class WeComChannel(Channel):
                     "type": "image",
                     "url": url,
                     "aeskey": aeskey if isinstance(aeskey, str) and aeskey else None,
+                    **_extract_wecom_file_metadata(image),
                 }
             ],
         )
@@ -233,6 +245,7 @@ class WeComChannel(Channel):
     async def _on_ws_file(self, frame: dict[str, Any]) -> None:
         body = frame.get("body", {}) or {}
         file_obj = body.get("file") or {}
+        logger.info("[WeCom] inbound file keys: %s", sorted(file_obj.keys()))
         url = file_obj.get("url")
         aeskey = file_obj.get("aeskey")
         if not isinstance(url, str) or not url:
@@ -245,6 +258,7 @@ class WeComChannel(Channel):
                     "type": "file",
                     "url": url,
                     "aeskey": aeskey if isinstance(aeskey, str) and aeskey else None,
+                    **_extract_wecom_file_metadata(file_obj),
                 }
             ],
         )

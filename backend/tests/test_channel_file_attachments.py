@@ -351,6 +351,58 @@ class TestInboundFileIngestion:
         assert (uploads_dir / "victim.txt").read_text(encoding="utf-8") == "protected"
         assert (uploads_dir / "victim_1.txt").read_bytes() == b"new attachment data"
 
+    def test_infers_pdf_extension_when_filename_missing(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            thread_ts="message-1",
+            files=[{"type": "file", "url": "https://example.invalid/download"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"%PDF-1.7\ncontent"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        assert result[0]["filename"] == "message-1_0.pdf"
+        assert result[0]["path"] == "/mnt/user-data/uploads/message-1_0.pdf"
+        assert (uploads_dir / "message-1_0.pdf").read_bytes() == b"%PDF-1.7\ncontent"
+
+    def test_uses_alternate_filename_metadata(self, tmp_path):
+        from app.channels import manager
+
+        uploads_dir = tmp_path / "uploads"
+        uploads_dir.mkdir()
+        msg = InboundMessage(
+            channel_name="test-channel",
+            chat_id="chat-1",
+            user_id="user-1",
+            text="see attachment",
+            files=[{"type": "file", "file_name": "report.xlsx", "url": "https://example.invalid/download"}],
+        )
+
+        async def fake_reader(file_info, client):
+            return b"xlsx data"
+
+        with (
+            patch("deerflow.uploads.manager.ensure_uploads_dir", return_value=uploads_dir),
+            patch.dict(manager.INBOUND_FILE_READERS, {"test-channel": fake_reader}, clear=False),
+        ):
+            result = _run(manager._ingest_inbound_files("thread-1", msg))
+
+        assert result[0]["filename"] == "report.xlsx"
+        assert result[0]["path"] == "/mnt/user-data/uploads/report.xlsx"
+
 
 # ---------------------------------------------------------------------------
 # Channel base class _on_outbound with attachments

@@ -10,6 +10,7 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 import httpx
 from langgraph_sdk.errors import ConflictError
@@ -50,11 +51,42 @@ CHANNEL_CAPABILITIES = {
 InboundFileReader = Callable[[dict[str, Any], httpx.AsyncClient], Awaitable[bytes | None]]
 
 _METADATA_DROP_KEYS = frozenset({"raw_message", "ref_msg"})
+_INBOUND_FILENAME_KEYS = ("filename", "file_name", "name", "title", "original_filename")
+_INBOUND_CONTENT_TYPE_KEYS = ("content_type", "mime_type", "mimetype", "mime")
 
 
 def _slim_metadata(meta: dict[str, Any]) -> dict[str, Any]:
     """Return a shallow copy of *meta* with known-large keys removed."""
     return {k: v for k, v in meta.items() if k not in _METADATA_DROP_KEYS}
+
+
+def _first_text_value(source: Mapping[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = source.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _guess_inbound_filename(file_info: Mapping[str, Any], data: bytes, ftype: str, fallback_stem: str) -> str:
+    filename = _first_text_value(file_info, _INBOUND_FILENAME_KEYS)
+    if filename:
+        return filename
+
+    url = _first_text_value(file_info, ("url", "full_url", "download_url", "source_url"))
+    url_name = Path(unquote(urlparse(url).path)).name if url else ""
+    if url_name and "." in url_name:
+        return url_name
+
+    content_type = _first_text_value(file_info, _INBOUND_CONTENT_TYPE_KEYS).split(";", 1)[0].strip().lower()
+    ext = ""
+    if content_type and content_type != "application/octet-stream":
+        ext = mimetypes.guess_extension(content_type) or ""
+    if not ext and data.startswith(b"%PDF-"):
+        ext = ".pdf"
+    if not ext and ftype == "image":
+        ext = ".png"
+    return f"{fallback_stem}{ext or '.bin'}"
 
 
 INBOUND_FILE_READERS: dict[str, InboundFileReader] = {}
@@ -459,10 +491,7 @@ async def _ingest_inbound_files(thread_id: str, msg: InboundMessage) -> list[dic
                 continue
 
             if not filename:
-                ext = ".bin"
-                if ftype == "image":
-                    ext = ".png"
-                filename = f"{msg.thread_ts or 'msg'}_{idx}{ext}"
+                filename = _guess_inbound_filename(f, data, ftype, f"{msg.thread_ts or 'msg'}_{idx}")
 
             try:
                 safe_name = claim_unique_filename(normalize_filename(filename), seen_names)
