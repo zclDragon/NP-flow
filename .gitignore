@@ -61,6 +61,8 @@ config.yaml.bak
 .gstack/
 .worktrees
 .env test
+.env test*
+config test.yaml
 config test*.yaml
 .trae/.ignore
 skills/public/data-analysis.zip
