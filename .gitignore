@@ -66,3 +66,7 @@ config test.yaml
 skills/public/data-analysis.zip
 skills/public/member-ops-report-planner.zip
 config copy.yaml
+
+.env test*
+config test*.yaml
+z_temp/
