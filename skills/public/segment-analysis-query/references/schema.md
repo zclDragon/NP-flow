@@ -21,6 +21,7 @@
 | 数据类型 | `data_type` | text | dimension |
 | 水木基辅 | `shuimu_jifu` | text | dimension |
 | PDT | `pdt` | text | dimension |
+| PDT+事业部 | `pdt_business_unit` | text | dimension |
 | 产线 | `product_line` | text | dimension |
 | Org | `org` | text | dimension |
 | Year | `year` | integer | time_dimension |
@@ -88,6 +89,11 @@
 | Taxation | `taxation` | double precision | metric |
 | PROFIT AFTER TAXATION | `profit_after_taxation` | double precision | metric |
 | Minority Interests | `minority_interests` | double precision | metric |
+| 事业群-顺序 | `business_group_order` | integer | dimension |
+| 事业部-顺序 | `business_unit_order` | integer | dimension |
+| 水木基辅-顺序 | `shuimu_jifu_order` | integer | dimension |
+| PDT-顺序 | `pdt_order` | integer | dimension |
+| PDT+事业部-顺序 | `pdt_business_unit_order` | integer | dimension |
 | PROFIT TO SHAREHOLDERS | `profit_to_shareholders` | double precision | metric |
 | 毛利 | `gross_profit` | double precision | metric |
 | CHC调拨加成成本 | `chc_transfer_markup_cost` | double precision | metric |
