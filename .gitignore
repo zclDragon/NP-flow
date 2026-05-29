@@ -70,3 +70,4 @@ skills/public/member-ops-report-planner.zip
 config copy.yaml
 temp/
 z_temp/
+extensions_config test*.json

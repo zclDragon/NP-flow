@@ -49,7 +49,7 @@ description: 用于基于 PostgreSQL 中的 Segment 经营分析表做中文问�
 - 用户问“收入”时，默认指标是 `TOTAL NET SALES`。
 - 用户问“利润”且未说明利润类型时，默认指标是 `PROFIT BEFORE TAX`。
 - 用户问“利润率”且未说明利润类型时，默认公式是 `PROFIT BEFORE TAX / TOTAL NET SALES`。
-- 金额类指标单位为千元；回答金额时默认按千元展示，必要时可换算为万元、百万元或亿元。
+- 金额类指标单位为千元；回答金额时默认按万元展示，必要时可换算为百万元或亿元。
 - `volume` 单位为吨。
 
 ## 用户习惯
