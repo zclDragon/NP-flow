@@ -435,6 +435,22 @@ class TestChannelManager:
         assert headers["Cookie"] == f"csrf_token={csrf_token}"
         assert headers["X-DeerFlow-Internal-Token"]
 
+    def test_registered_channel_type_is_used_for_instance_capabilities(self):
+        from app.channels.manager import ChannelManager, _resolve_registered_channel_type
+
+        fake_channel = SimpleNamespace(config={"channel_type": "wecom"}, supports_streaming=True)
+        fake_service = SimpleNamespace(get_channel=lambda name: fake_channel if name == "wecom_sales" else None)
+
+        with patch("app.channels.service.get_channel_service", return_value=fake_service):
+            assert _resolve_registered_channel_type("wecom_sales") == "wecom"
+            assert ChannelManager._channel_supports_streaming("wecom_sales") is True
+
+    def test_unknown_channel_type_falls_back_to_channel_name(self):
+        from app.channels.manager import _resolve_registered_channel_type
+
+        with patch("app.channels.service.get_channel_service", return_value=None):
+            assert _resolve_registered_channel_type("wecom_sales") == "wecom_sales"
+
     def test_fetch_gateway_includes_internal_auth_headers(self, monkeypatch):
         from app.channels.manager import ChannelManager
 
@@ -2048,6 +2064,16 @@ class TestFeishuChannel:
 
 
 class TestWeComChannel:
+    def test_uses_configured_channel_name(self):
+        from app.channels.wecom import WeComChannel
+
+        bus = MessageBus()
+        legacy_channel = WeComChannel(bus, config={})
+        instance_channel = WeComChannel(bus, config={"channel_name": "wecom_sales"})
+
+        assert legacy_channel.name == "wecom"
+        assert instance_channel.name == "wecom_sales"
+
     def test_start_registers_voice_and_video_handlers(self, monkeypatch):
         from app.channels.wecom import WeComChannel
 
@@ -2533,6 +2559,93 @@ class TestChannelService:
         assert service.manager._default_session["context"]["thinking_enabled"] is False
         assert service.manager._channel_sessions["telegram"]["assistant_id"] == "mobile_agent"
         assert service.manager._channel_sessions["telegram"]["users"]["vip"]["assistant_id"] == "vip_agent"
+
+    def test_service_starts_channel_instance_by_type(self):
+        from app.channels.service import ChannelService
+
+        class ConfigurableNameChannel(Channel):
+            def __init__(self, bus, config=None):
+                config = config or {}
+                super().__init__(name=config["channel_name"], bus=bus, config=config)
+
+            async def start(self):
+                self._running = True
+                self.bus.subscribe_outbound(self._on_outbound)
+
+            async def stop(self):
+                self._running = False
+                self.bus.unsubscribe_outbound(self._on_outbound)
+
+            async def send(self, msg: OutboundMessage):
+                return None
+
+        async def go():
+            service = ChannelService(
+                channels_config={
+                    "wecom_sales": {
+                        "type": "wecom",
+                        "enabled": True,
+                        "bot_id": "bot-1",
+                        "bot_secret": "secret-1",
+                        "session": {"assistant_id": "SalesAgent"},
+                    },
+                }
+            )
+
+            with patch("deerflow.reflection.resolve_class", return_value=ConfigurableNameChannel) as resolve_class:
+                await service.start()
+
+            resolve_class.assert_called_once_with("app.channels.wecom:WeComChannel", base_class=None)
+            assert "wecom_sales" in service._channels
+            assert service._channels["wecom_sales"].name == "wecom_sales"
+            assert service._channels["wecom_sales"].config["channel_type"] == "wecom"
+            assert service.manager._channel_sessions["wecom_sales"]["assistant_id"] == "SalesAgent"
+
+            status = service.get_status()
+            assert status["channels"]["wecom_sales"] == {"enabled": True, "running": True}
+            await service.stop()
+
+        _run(go())
+
+    def test_service_keeps_legacy_wecom_channel_name(self):
+        from app.channels.service import ChannelService
+
+        class ConfigurableNameChannel(Channel):
+            def __init__(self, bus, config=None):
+                config = config or {}
+                super().__init__(name=config["channel_name"], bus=bus, config=config)
+
+            async def start(self):
+                self._running = True
+                self.bus.subscribe_outbound(self._on_outbound)
+
+            async def stop(self):
+                self._running = False
+                self.bus.unsubscribe_outbound(self._on_outbound)
+
+            async def send(self, msg: OutboundMessage):
+                return None
+
+        async def go():
+            service = ChannelService(
+                channels_config={
+                    "wecom": {
+                        "enabled": True,
+                        "bot_id": "bot-1",
+                        "bot_secret": "secret-1",
+                    },
+                }
+            )
+
+            with patch("deerflow.reflection.resolve_class", return_value=ConfigurableNameChannel):
+                await service.start()
+
+            assert "wecom" in service._channels
+            assert service._channels["wecom"].name == "wecom"
+            assert service._channels["wecom"].config["channel_type"] == "wecom"
+            await service.stop()
+
+        _run(go())
 
     def test_service_urls_fall_back_to_env(self, monkeypatch):
         from app.channels.service import ChannelService

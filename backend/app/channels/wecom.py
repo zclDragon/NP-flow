@@ -168,7 +168,12 @@ def _parse_wecom_inbound(frame: dict[str, Any]) -> WeComInbound | None:
 
 class WeComChannel(Channel):
     def __init__(self, bus: MessageBus, config: dict[str, Any]) -> None:
-        super().__init__(name="wecom", bus=bus, config=config)
+        channel_name = config.get("channel_name")
+        super().__init__(
+            name=channel_name if isinstance(channel_name, str) and channel_name else "wecom",
+            bus=bus,
+            config=config,
+        )
         self._bot_id: str | None = None
         self._bot_secret: str | None = None
         self._ws_client = None

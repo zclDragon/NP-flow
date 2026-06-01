@@ -238,6 +238,19 @@ def _make_inbound_file_sandbox_readable(file_path: os.PathLike[str] | str) -> No
 INBOUND_FILE_READERS: dict[str, InboundFileReader] = {}
 
 
+def _resolve_registered_channel_type(channel_name: str) -> str:
+    from .service import get_channel_service
+
+    service = get_channel_service()
+    if service:
+        channel = service.get_channel(channel_name)
+        if channel is not None:
+            channel_type = channel.config.get("channel_type")
+            if isinstance(channel_type, str) and channel_type:
+                return channel_type
+    return channel_name
+
+
 def register_inbound_file_reader(channel_name: str, reader: InboundFileReader) -> None:
     INBOUND_FILE_READERS[channel_name] = reader
 
@@ -609,7 +622,8 @@ async def _ingest_inbound_files(thread_id: str, msg: InboundMessage) -> list[dic
     seen_names = {entry.name for entry in uploads_dir.iterdir() if entry.is_file()}
 
     created: list[dict[str, Any]] = []
-    file_reader = INBOUND_FILE_READERS.get(msg.channel_name, _read_http_inbound_file)
+    channel_type = _resolve_registered_channel_type(msg.channel_name)
+    file_reader = INBOUND_FILE_READERS.get(channel_type, _read_http_inbound_file)
     async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
         for idx, f in enumerate(msg.files):
             if not isinstance(f, dict):
@@ -742,7 +756,8 @@ class ChannelManager:
             channel = service.get_channel(channel_name)
             if channel is not None:
                 return channel.supports_streaming
-        return CHANNEL_CAPABILITIES.get(channel_name, {}).get("supports_streaming", False)
+        channel_type = _resolve_registered_channel_type(channel_name)
+        return CHANNEL_CAPABILITIES.get(channel_type, {}).get("supports_streaming", False)
 
     def _resolve_session_layer(self, msg: InboundMessage) -> tuple[dict[str, Any], dict[str, Any]]:
         channel_layer = _as_dict(self._channel_sessions.get(msg.channel_name))

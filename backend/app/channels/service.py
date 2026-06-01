@@ -52,6 +52,11 @@ def _resolve_service_url(config: dict[str, Any], config_key: str, env_key: str, 
     return default
 
 
+def _resolve_channel_type(name: str, config: dict[str, Any]) -> str:
+    channel_type = config.get("type", name)
+    return channel_type.strip() if isinstance(channel_type, str) and channel_type.strip() else name
+
+
 class ChannelService:
     """Manages the lifecycle of all configured IM channels.
 
@@ -103,8 +108,9 @@ class ChannelService:
         for name, channel_config in self._config.items():
             if not isinstance(channel_config, dict):
                 continue
+            channel_type = _resolve_channel_type(name, channel_config)
             if not channel_config.get("enabled", False):
-                cred_keys = _CHANNEL_CREDENTIAL_KEYS.get(name, [])
+                cred_keys = _CHANNEL_CREDENTIAL_KEYS.get(channel_type, [])
                 has_creds = any(not isinstance(channel_config.get(k), bool) and channel_config.get(k) is not None and str(channel_config[k]).strip() for k in cred_keys)
                 if has_creds:
                     logger.warning(
@@ -153,9 +159,10 @@ class ChannelService:
 
     async def _start_channel(self, name: str, config: dict[str, Any]) -> bool:
         """Instantiate and start a single channel."""
-        import_path = _CHANNEL_REGISTRY.get(name)
+        channel_type = _resolve_channel_type(name, config)
+        import_path = _CHANNEL_REGISTRY.get(channel_type)
         if not import_path:
-            logger.warning("Unknown channel type: %s", name)
+            logger.warning("Unknown channel type: %s", channel_type)
             return False
 
         try:
@@ -163,11 +170,13 @@ class ChannelService:
 
             channel_cls = resolve_class(import_path, base_class=None)
         except Exception:
-            logger.exception("Failed to import channel class for %s", name)
+            logger.exception("Failed to import channel class for %s", channel_type)
             return False
 
         try:
             config = dict(config)
+            config["channel_name"] = name
+            config["channel_type"] = channel_type
             config["channel_store"] = self.store
             channel = channel_cls(bus=self.bus, config=config)
             self._channels[name] = channel
@@ -186,7 +195,8 @@ class ChannelService:
     def get_status(self) -> dict[str, Any]:
         """Return status information for all channels."""
         channels_status = {}
-        for name in _CHANNEL_REGISTRY:
+        configured_names = {name for name, config in self._config.items() if isinstance(config, dict)}
+        for name in sorted(set(_CHANNEL_REGISTRY) | configured_names):
             config = self._config.get(name, {})
             enabled = isinstance(config, dict) and config.get("enabled", False)
             running = name in self._channels and self._channels[name].is_running
