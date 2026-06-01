@@ -70,3 +70,5 @@ config copy.yaml
 .env test*
 config test*.yaml
 z_temp/
+issues/
+extensions_config test*.json
