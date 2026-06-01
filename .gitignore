@@ -71,3 +71,4 @@ config copy.yaml
 temp/
 z_temp/
 extensions_config test*.json
+issues/
