@@ -181,6 +181,8 @@ class WeComChannel(Channel):
         self._ws_frames: dict[str, dict[str, Any]] = {}
         self._ws_stream_ids: dict[str, str] = {}
         self._working_message = "Working on it..."
+        self._ws_reconnect_initial_delay = 1.0
+        self._ws_reconnect_max_delay = 30.0
 
     @property
     def supports_streaming(self) -> bool:
@@ -191,6 +193,66 @@ class WeComChannel(Channel):
             return
         self._ws_frames.pop(thread_ts, None)
         self._ws_stream_ids.pop(thread_ts, None)
+
+    def _create_ws_client(self):
+        if not self._bot_id or not self._bot_secret:
+            raise RuntimeError("WeCom channel requires bot_id and bot_secret")
+        from aibot import WSClient, WSClientOptions
+
+        ws_client = WSClient(WSClientOptions(bot_id=self._bot_id, secret=self._bot_secret, logger=logger))
+        ws_client.on("message", self._on_ws_message)
+        ws_client.on("message.text", self._on_ws_text)
+        ws_client.on("message.mixed", self._on_ws_mixed)
+        ws_client.on("message.image", self._on_ws_image)
+        ws_client.on("message.file", self._on_ws_file)
+        ws_client.on("message.voice", self._on_ws_voice)
+        ws_client.on("message.video", self._on_ws_video)
+        ws_client.on("error", self._on_ws_error)
+        return ws_client
+
+    def _on_ws_error(self, error: Exception) -> None:
+        logger.warning("[WeCom] WebSocket SDK error: %s", error)
+
+    def _disconnect_ws_client(self) -> None:
+        if not self._ws_client:
+            return
+        try:
+            self._ws_client.disconnect()
+        except Exception:
+            logger.debug("[WeCom] error while disconnecting WebSocket client", exc_info=True)
+        finally:
+            self._ws_client = None
+
+    async def _run_ws_forever(self) -> None:
+        reconnect_attempt = 0
+        while self._running:
+            try:
+                self._ws_client = self._create_ws_client()
+                logger.info("[WeCom] starting WebSocket connection supervisor")
+                await self._ws_client.connect()
+                reconnect_attempt = 0
+                if self._running:
+                    logger.warning("[WeCom] WebSocket connection exited without an exception; reconnecting")
+            except asyncio.CancelledError:
+                logger.info("[WeCom] WebSocket supervisor cancelled")
+                raise
+            except Exception as exc:
+                if self._running:
+                    logger.exception("[WeCom] WebSocket connection failed or exited unexpectedly: %s", exc)
+            finally:
+                self._disconnect_ws_client()
+
+            if not self._running:
+                break
+
+            delay = min(self._ws_reconnect_max_delay, self._ws_reconnect_initial_delay * (2**reconnect_attempt))
+            reconnect_attempt += 1
+            logger.info("[WeCom] reconnecting WebSocket in %.1fs (attempt %d)", delay, reconnect_attempt)
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                logger.info("[WeCom] WebSocket supervisor cancelled during reconnect backoff")
+                raise
 
     async def _send_ws_upload_command(self, req_id: str, body: dict[str, Any], cmd: str) -> dict[str, Any]:
         if not self._ws_client:
@@ -221,40 +283,30 @@ class WeComChannel(Channel):
             return
 
         try:
-            from aibot import WSClient, WSClientOptions
+            import aibot  # noqa: F401
         except ImportError:
             logger.error("wecom-aibot-python-sdk is not installed. Install it with: uv add wecom-aibot-python-sdk")
             return
-        else:
-            self._ws_client = WSClient(WSClientOptions(bot_id=self._bot_id, secret=self._bot_secret, logger=logger))
-            self._ws_client.on("message", self._on_ws_message)
-            self._ws_client.on("message.text", self._on_ws_text)
-            self._ws_client.on("message.mixed", self._on_ws_mixed)
-            self._ws_client.on("message.image", self._on_ws_image)
-            self._ws_client.on("message.file", self._on_ws_file)
-            self._ws_client.on("message.voice", self._on_ws_voice)
-            self._ws_client.on("message.video", self._on_ws_video)
-            self._ws_task = asyncio.create_task(self._ws_client.connect())
 
-            self._running = True
-            self.bus.subscribe_outbound(self._on_outbound)
+        self._running = True
+        self.bus.subscribe_outbound(self._on_outbound)
+        self._ws_task = asyncio.create_task(self._run_ws_forever())
         logger.info("WeCom channel started")
 
     async def stop(self) -> None:
         self._running = False
         self.bus.unsubscribe_outbound(self._on_outbound)
-        if self._ws_task:
+        task = self._ws_task
+        self._ws_task = None
+        if task:
+            task.cancel()
             try:
-                self._ws_task.cancel()
-            except Exception:
+                await task
+            except asyncio.CancelledError:
                 pass
-            self._ws_task = None
-        if self._ws_client:
-            try:
-                self._ws_client.disconnect()
             except Exception:
-                pass
-        self._ws_client = None
+                logger.debug("[WeCom] WebSocket supervisor exited during stop", exc_info=True)
+        self._disconnect_ws_client()
         self._ws_frames.clear()
         self._ws_stream_ids.clear()
         logger.info("WeCom channel stopped")

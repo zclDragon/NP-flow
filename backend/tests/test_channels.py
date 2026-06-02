@@ -2102,9 +2102,56 @@ class TestWeComChannel:
 
             await channel.start()
 
-            assert "message" in FakeWSClient.handlers
+            await _wait_for(lambda: "message" in FakeWSClient.handlers)
             assert "message.voice" in FakeWSClient.handlers
             assert "message.video" in FakeWSClient.handlers
+            assert "error" in FakeWSClient.handlers
+
+            await channel.stop()
+
+        _run(go())
+
+    def test_websocket_supervisor_recreates_client_after_failure(self, monkeypatch):
+        from app.channels.wecom import WeComChannel
+
+        clients = []
+
+        class FakeWSClient:
+            def __init__(self, options):
+                self.options = options
+                self.handlers = {}
+                self.disconnected = False
+                clients.append(self)
+
+            def on(self, name, handler):
+                self.handlers[name] = handler
+
+            async def connect(self):
+                if len(clients) == 1:
+                    raise ConnectionRefusedError(111, "Connection refused")
+                await asyncio.sleep(3600)
+
+            def disconnect(self):
+                self.disconnected = True
+
+        fake_aibot = SimpleNamespace(
+            WSClient=FakeWSClient,
+            WSClientOptions=lambda **kwargs: kwargs,
+        )
+        monkeypatch.setitem(__import__("sys").modules, "aibot", fake_aibot)
+
+        async def go():
+            bus = MessageBus()
+            channel = WeComChannel(bus, config={"bot_id": "bot-1", "bot_secret": "secret-1"})
+            channel._ws_reconnect_initial_delay = 0.01
+            channel._ws_reconnect_max_delay = 0.01
+
+            await channel.start()
+            await _wait_for(lambda: len(clients) >= 2 and channel._ws_client is clients[-1], timeout=1, interval=0.01)
+
+            assert len(clients) >= 2
+            assert clients[0].disconnected is True
+            assert channel._ws_client is clients[-1]
 
             await channel.stop()
 
