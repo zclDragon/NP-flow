@@ -226,23 +226,25 @@ class WeComChannel(Channel):
     async def _run_ws_forever(self) -> None:
         reconnect_attempt = 0
         while self._running:
+            should_reconnect = False
             try:
                 self._ws_client = self._create_ws_client()
                 logger.info("[WeCom] starting WebSocket connection supervisor")
                 await self._ws_client.connect()
                 reconnect_attempt = 0
-                if self._running:
-                    logger.warning("[WeCom] WebSocket connection exited without an exception; reconnecting")
+                while self._running:
+                    await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 logger.info("[WeCom] WebSocket supervisor cancelled")
                 raise
             except Exception as exc:
+                should_reconnect = self._running
                 if self._running:
                     logger.exception("[WeCom] WebSocket connection failed or exited unexpectedly: %s", exc)
             finally:
                 self._disconnect_ws_client()
 
-            if not self._running:
+            if not self._running or not should_reconnect:
                 break
 
             delay = min(self._ws_reconnect_max_delay, self._ws_reconnect_initial_delay * (2**reconnect_attempt))

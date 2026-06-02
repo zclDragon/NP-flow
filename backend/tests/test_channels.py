@@ -2111,6 +2111,51 @@ class TestWeComChannel:
 
         _run(go())
 
+    def test_websocket_supervisor_keeps_client_after_connect_returns(self, monkeypatch):
+        from app.channels.wecom import WeComChannel
+
+        clients = []
+
+        class FakeWSClient:
+            def __init__(self, options):
+                self.options = options
+                self.handlers = {}
+                self.disconnected = False
+                self.connect_calls = 0
+                clients.append(self)
+
+            def on(self, name, handler):
+                self.handlers[name] = handler
+
+            async def connect(self):
+                self.connect_calls += 1
+
+            def disconnect(self):
+                self.disconnected = True
+
+        fake_aibot = SimpleNamespace(
+            WSClient=FakeWSClient,
+            WSClientOptions=lambda **kwargs: kwargs,
+        )
+        monkeypatch.setitem(__import__("sys").modules, "aibot", fake_aibot)
+
+        async def go():
+            bus = MessageBus()
+            channel = WeComChannel(bus, config={"bot_id": "bot-1", "bot_secret": "secret-1"})
+
+            await channel.start()
+            await _wait_for(lambda: len(clients) == 1 and clients[0].connect_calls == 1, timeout=1, interval=0.01)
+            await asyncio.sleep(0.05)
+
+            assert len(clients) == 1
+            assert clients[0].disconnected is False
+            assert channel._ws_client is clients[0]
+
+            await channel.stop()
+            assert clients[0].disconnected is True
+
+        _run(go())
+
     def test_websocket_supervisor_recreates_client_after_failure(self, monkeypatch):
         from app.channels.wecom import WeComChannel
 
