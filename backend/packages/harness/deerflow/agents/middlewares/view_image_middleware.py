@@ -108,7 +108,7 @@ class ViewImageMiddleware(AgentMiddleware[ViewImageMiddlewareState]):
         # Build the message with image information
         content_blocks: list[str | dict] = [{"type": "text", "text": "Here are the images you've viewed:"}]
 
-        for image_path, image_data in viewed_images.items():
+        for image_path, image_data in list(viewed_images.items())[-20:]:
             mime_type = image_data.get("mime_type", "unknown")
             base64_data = image_data.get("base64", "")
 
