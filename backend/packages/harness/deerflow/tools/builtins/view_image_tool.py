@@ -18,6 +18,7 @@ _ALLOWED_IMAGE_VIRTUAL_ROOTS = (
 )
 _ALLOWED_IMAGE_VIRTUAL_ROOTS_TEXT = ", ".join(_ALLOWED_IMAGE_VIRTUAL_ROOTS)
 _MAX_IMAGE_BYTES = 20 * 1024 * 1024
+_MAX_IMAGES_PER_ANALYSIS_BATCH = 20
 _EXTENSION_TO_MIME = {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
@@ -62,6 +63,7 @@ def view_image_tool(
     When NOT to use the view_image tool:
     - For non-image files (use present_files instead)
     - For multiple files at once (use present_files instead)
+    - For more than 20 images in one analysis batch; split them into smaller batches
 
     Args:
         image_path: Absolute /mnt/user-data virtual path to the image file. Common formats supported: jpg, jpeg, png, webp.
@@ -74,6 +76,19 @@ def view_image_tool(
     )
 
     thread_data = get_thread_data(runtime)
+    viewed_images = runtime.state.get("viewed_images", {}) if runtime is not None and runtime.state is not None else {}
+    if image_path not in viewed_images and len(viewed_images) >= _MAX_IMAGES_PER_ANALYSIS_BATCH:
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        f"Error: view_image supports at most {_MAX_IMAGES_PER_ANALYSIS_BATCH} images per analysis batch. Split images into smaller batches.",
+                        tool_call_id=tool_call_id,
+                        status="error",
+                    )
+                ]
+            },
+        )
 
     if not _is_allowed_image_virtual_path(image_path):
         return Command(

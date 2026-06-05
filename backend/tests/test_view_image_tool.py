@@ -72,6 +72,48 @@ def test_view_image_reads_virtual_uploads_path(tmp_path: Path) -> None:
     assert viewed_image["mime_type"] == "image/png"
 
 
+def test_view_image_rejects_new_image_when_batch_limit_reached(tmp_path: Path) -> None:
+    thread_data = _make_thread_data(tmp_path)
+    runtime = _make_runtime(thread_data)
+    runtime.state["viewed_images"] = {
+        f"/mnt/user-data/uploads/existing-{i}.png": {"base64": "AAA", "mime_type": "image/png"}
+        for i in range(20)
+    }
+
+    result = view_image_tool.func(
+        runtime=runtime,
+        image_path="/mnt/user-data/uploads/new.png",
+        tool_call_id="tc-limit",
+    )
+
+    assert "at most 20 images per analysis batch" in _message_content(result)
+    assert result.update["messages"][0].status == "error"
+    assert "viewed_images" not in result.update
+
+
+def test_view_image_allows_existing_image_when_batch_limit_reached(tmp_path: Path) -> None:
+    thread_data = _make_thread_data(tmp_path)
+    image_path = Path(thread_data["uploads_path"]) / "existing.png"
+    image_path.write_bytes(PNG_BYTES)
+    runtime = _make_runtime(thread_data)
+    runtime.state["viewed_images"] = {
+        **{
+            f"/mnt/user-data/uploads/existing-{i}.png": {"base64": "AAA", "mime_type": "image/png"}
+            for i in range(19)
+        },
+        "/mnt/user-data/uploads/existing.png": {"base64": "OLD", "mime_type": "image/png"},
+    }
+
+    result = view_image_tool.func(
+        runtime=runtime,
+        image_path="/mnt/user-data/uploads/existing.png",
+        tool_call_id="tc-existing",
+    )
+
+    assert _message_content(result) == "Successfully read image"
+    assert result.update["viewed_images"]["/mnt/user-data/uploads/existing.png"]["mime_type"] == "image/png"
+
+
 def test_view_image_rejects_spoofed_extension(tmp_path: Path) -> None:
     thread_data = _make_thread_data(tmp_path)
     image_path = Path(thread_data["uploads_path"]) / "not-really.png"
