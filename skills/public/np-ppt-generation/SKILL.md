@@ -1,6 +1,6 @@
 ---
 name: np-ppt-generation
-description: 使用 PptxGenJS、配套 helper、立邦品牌资产和渲染校验脚本生成或编辑可编辑 PowerPoint（`.pptx`）演示文稿。适用于新建/修改 PPT、把材料转成 PPT、复刻参考稿、生成业务汇报或数据汇报；默认输出立邦集团简报模板风格，除非用户明确指定其他品牌或模板。
+description: 使用 PptxGenJS、配套 helper、立邦品牌资产和渲染校验脚本生成或编辑可编辑 PowerPoint（`.pptx`）演示文稿。每次触发本技能时，先重新读取本目录 `SKILL.md`，以当前文件内容为准。适用于新建/修改 PPT、把材料转成 PPT、复刻参考稿、生成业务汇报或数据汇报；默认输出立邦集团简报模板风格，除非用户明确指定其他品牌或模板。
 compatibility:
   tools: ["shell", "filesystem"]
   runtimes: ["node", "python"]
