@@ -1,0 +1,9 @@
+{
+  "name": "np-pdf-generation",
+  "private": true,
+  "description": "Portable dependency manifest for the np-pdf-generation skill.",
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.54.0"
+  }
+}
