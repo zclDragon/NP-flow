@@ -18,7 +18,7 @@ compatibility:
 - `scripts/slides_test.py`：溢出检测。
 - `scripts/create_montage.py`：生成缩略总览图。
 - `scripts/detect_font.py`：字体检测。
-- `scripts/export_pptx.py`：最终交付前通过 LibreOffice 导出 PPTX。
+- `scripts/check_pptx_package.py`：纯 Python PPTX 包结构检查，用于发现可能触发 Windows PowerPoint 修复提示的问题。
 - `references/pptxgenjs-helpers.md`：helper API 参考。
 - `references/nippon-style-guide.md`：立邦模板风格参数。生成立邦风格 PPT 前先读。
 
@@ -52,11 +52,11 @@ System tools:
 1. 判断任务类型：新建 deck、修改 deck、材料转 PPT，或复刻参考稿。
 2. 在当前任务下创建独立工作目录。
 3. 复制 `assets/pptxgenjs_helpers/` 和 `assets/nippon_style/` 到工作目录，从本地副本导入。
-4. 使用 `pptxgenjs` 生成或修改 authoring `.pptx`。
+4. 使用 `pptxgenjs` 生成或修改 `.pptx`。
 5. 默认套用立邦模板风格；若用户明确给出其他品牌/参考模板，则以用户指定风格为准。
-6. 交付文件必须运行一次 `export_pptx.py`；这是生成流程的一部分，不另存 `_修复版`、`_规范版` 等中间文件。
-7. 渲染最终 PPTX 为 PNG 并逐页检查；页面密集或边界紧时运行溢出和字体检测。
-8. 修正问题后重新导出并渲染复核。
+6. 按 Windows-safe authoring rules 生成；不要依赖事后安装 LibreOffice 修复。
+7. 生成后先运行 `check_pptx_package.py`，再渲染成 PNG，逐页检查；页面密集或边界紧时运行溢出和字体检测。
+8. 修正问题后重新检查和渲染复核。
 
 ## Editable Layer Rules
 
@@ -76,7 +76,6 @@ System tools:
 
 - 页面尺寸：16:9 wide。
 - 中文字体：`微软雅黑`。
-- 文字默认偏大处理，优先保证投影和截图阅读清晰。
 - 主色：立邦深蓝 `#00378A` / `#00388B`。
 - 正文页：白底、左上 logo、深蓝标题、底部品牌口号条、右下页码。
 - 封面页：使用 `cover-white-left-blue.jpeg`。
@@ -88,9 +87,15 @@ System tools:
 
 - 显式设置 `LAYOUT_WIDE` 和主题字体。
 - 图片放置优先使用 helper，不要随手硬算裁切。
-- 在 Linux 沙盒生成 PPTX 时，最终交付文件必须由 `export_pptx.py` 产出；不要把 PptxGenJS 直接写出的 authoring 文件当成最终交付版。
-- 复用同一品牌图片文件路径，不要把 logo、footer、背景反复转成不同 data URI 或临时图片。
-- 不需要备注时不要生成 notes；不要手工改写 PPTX 内部 XML、关系文件、Content Types 或 docProps。
+- Windows-safe authoring rules：
+  - 优先使用本地 PNG/JPEG 文件路径作为图片源；避免把重复 logo、footer、背景转成 data URI 或临时文件。
+  - 同一品牌图片在所有页面复用同一个文件路径。
+  - 不需要讲稿时不要生成 notes。
+  - 不手工改写 PPTX 内部 XML、关系文件、Content Types、docProps 或 master/layout。
+  - 避免把 SVG 直接作为最终 PPT 图片源；需要矢量图时优先转为 PNG 或用 PowerPoint 原生 shape 重建。
+  - 不写自定义属性、保护标签、外部链接、嵌入对象、OLE、视频或宏，除非用户明确要求。
+  - 表格、文本、基础图形和简单图表优先使用 PptxGenJS 原生 API。
+- 生成后必须运行 `check_pptx_package.py`。若出现 ERROR，不能交付；先调整生成代码并重建。WARN 需在最终说明中记录，能消除则消除。
 - 对新建或大改 deck，源码中保留：
   - `warnIfSlideHasOverlaps(slide, pptx)`
   - `warnIfSlideElementsOutOfBounds(slide, pptx)`
@@ -101,7 +106,7 @@ System tools:
 只要环境支持，交付前执行：
 
 ```bash
-python3 scripts/export_pptx.py deck.authoring.pptx --output deck.pptx
+python3 scripts/check_pptx_package.py deck.pptx
 python3 scripts/render_slides.py deck.pptx --output_dir rendered
 python3 scripts/create_montage.py --input_dir rendered --output_file montage.png
 python3 scripts/slides_test.py deck.pptx
