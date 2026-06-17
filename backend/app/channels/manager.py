@@ -48,7 +48,7 @@ DEFAULT_RUN_CONTEXT: dict[str, Any] = {
     "subagent_enabled": False,
 }
 STREAM_UPDATE_MIN_INTERVAL_SECONDS = 0.35
-THREAD_BUSY_MESSAGE = "This conversation is already processing another request. Please wait for it to finish and try again."
+THREAD_BUSY_MESSAGE = "我知道你很急，但你先别急。当前你的对话正在处理另一项任务，请等待处理完成后重试。"
 
 CHANNEL_CAPABILITIES = {
     "dingtalk": {"supports_streaming": False},
