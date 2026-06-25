@@ -72,3 +72,4 @@ temp/
 z_temp/
 issues/
 extensions_config test*.json
+*.zip

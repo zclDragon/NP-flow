@@ -1,6 +1,6 @@
 ---
 name: segment-analysis-query
-description: 使用 Segmentrep 已建好的查询表回答中文经营问数和资产负债表问数。适用于用户询问 Segmentrep、SEG、ALL YEAR、经营分析、收入、利润、利润率、费用、预算、实际、同比、YTD、简化利润表、事业群、事业部、PDT、产线、Org、资产、负债、净资产、权益、现金、存货、应收、应付、借款、周转天数、BS 或资产负债表。只做问数分析和结果解释，不用于 Excel 入库、建表或数据清洗。
+description: 使用 Segmentrep 已建好的查询表回答中文经营问数和资产负债表问数。适用于用户询问 Segmentrep、SEG、ALL YEAR、经营分析、收入、利润、利润率、费用、预算、实际、同比、YTD、简化利润表、事业群、事业部、PDT、产线、Org、资产、负债、净资产、权益、现金、存货、应收、应付、借款、周转天数、BS 或资产负债表，以及零售、TUC、经销商、客户、物料、SKU、创色费等底层明细数据。只做问数分析和结果解释，不用于 Excel 入库、建表或数据清洗。
 ---
 
 # Segmentrep 经营与 BS 问数
@@ -9,32 +9,35 @@ description: 使用 Segmentrep 已建好的查询表回答中文经营问数和�
 
 ## 工作流
 
-1. 判断问题类型：P&L/Segment 问数，还是 BS/资产负债表问数。
+1. 判断问题类型：是宏观 P&L/Segment 问数、BS/资产负债表问数，还是底层 TUC 零售明细下钻。
 2. 解析时间、组织范围、指标、数据类型、输出形式和排序要求。
 3. 用默认口径补齐缺失信息。
-4. 需要字段名时读取对应 schema reference；需要指标中文名或别名时读取 `references/metric_names.md`。
+4. 需要字段名时读取对应 schema reference；需要 `seg_all_year` 或 `bs_monthly_fact` 指标中文名或别名时读取 `references/metric_names_seg.md`；需要 `tuc_retail_data` 指标名时直接参考其 schema。
 5. 使用可用的数据库查询工具查询对应事实表。
 6. 用中文输出业务结论、关键依据和必要口径；默认隐藏底层实现细节。
 
 ## 数据源
 
 - 数据库：`Segmentrep`
-- P&L/Segment 表：`public.seg_all_year`
+- 宏观 P&L/Segment 表：`public.seg_all_year`
 - BS 月度表：`public.bs_monthly_fact`
-- 表类型：两张问数事实表
+- TUC 零售明细下钻表：`public.tuc_retail_data`
+- 表类型：三张问数事实表
 - 查询方式：使用数据库查询工具执行 SQL
 - `data_type` 枚举值：`实际`、`预算`
 
 ## 规则路由
 
-- 收入、利润、费用、预算、实际、同比、segment、事业部、PDT、产线、Org：
-  使用 `public.seg_all_year`；需要字段名时读取 `references/seg_all_year_schema.md`。
+- 收入、利润、费用、预算、实际、同比、segment、事业部、PDT、产线、Org（宏观汇总分析）：
+  优先使用 `public.seg_all_year`；需要字段名时读取 `references/seg_all_year_schema.md`。
+- 零售、TUC明细、客户、经销商、物料、SKU、省份、城市、专卖店、创色费、产品特权费（底层明细下钻分析）：
+  使用 `public.tuc_retail_data`；需要字段名时读取 `references/tuc_retail_data_schema.md`。查询包含客户、物料等明细维度时，禁止全量明细，必须增加 `LIMIT 30` 控制输出范围。
 - 资产、负债、净资产、权益、现金、存货、应收、应付、借款、周转天数、BS、资产负债表：
   使用 `public.bs_monthly_fact`；需要字段名时读取 `references/bs_monthly_fact_schema.md`。
 - 一般 P&L/Segment 问数：
   直接使用默认口径、维度规则和回答规则。
-- 需要指标中文名、别名或展示名称：
-  读取 `references/metric_names.md`。
+- 需要指标中文名、别名或展示名称（非零售明细表）：
+  读取 `references/metric_names_seg.md`。
 - 需要简化利润表：
   使用本文件中的“输出规则”。
 - 需要低层级维度分析：
@@ -53,7 +56,7 @@ description: 使用 Segmentrep 已建好的查询表回答中文经营问数和�
 - 用户问“收入”时，默认指标是 `TOTAL NET SALES`。
 - 用户问“利润”且未说明利润类型时，默认指标是 `PROFIT BEFORE TAX`。
 - 用户问“利润率”且未说明利润类型时，默认公式是 `PROFIT BEFORE TAX / TOTAL NET SALES`。
-- 金额类指标单位为千元，但回答金额时优先换算成按万元展示/回复，必要时可换算为百万元或亿元。
+- 金额类指标单位为千元；回答金额时默认按千元展示，必要时可换算为万元、百万元或亿元。
 - `volume` 单位为吨。
 
 ## 用户习惯
@@ -96,6 +99,7 @@ description: 使用 Segmentrep 已建好的查询表回答中文经营问数和�
 - 损益相关金额字段单位为千元。
 - BS 金额字段单位为千元。
 - BS 周转天数字段单位为天。
+- 金额结果默认保持千元展示；只有用户要求、数值过大影响阅读，或对比分析需要更高层级单位时，才换算为万元、百万元或亿元，并明确标注展示单位。
 - 单位售价、单吨价格、单位收入等单价类指标，默认按金额除以吨计算。
 - `千元/吨` 与 `元/KG` 数值相同，只是展示单位不同。
 - 用户明确要求 `元/KG` 时，可以直接使用 `金额(千元) / 销量(吨)` 的结果，并把单位标为 `元/KG`。
@@ -160,7 +164,8 @@ BS 问数输出规则：
 - 优先回答用户问题本身，不主动展开全量字段说明。
 - 先给结论，再补充当前问题需要的口径、过滤条件和计算公式。
 - 指标名称优先用中文；必要时在括号中补充 SQL 字段名。
-- 金额类结果标注单位“千元”，比例类结果标注为百分比，销量按吨展示。
+- 金额类结果默认标注单位“千元”；如换算为万元、百万元或亿元，必须在表头或结论中明确标注展示单位。
+- 比例类结果标注为百分比，销量按吨展示。
 - 数据库、表名、字段名、SQL、查询步骤属于内部实现，默认不要主动向用户披露。
 - 默认不要说“我查了数据库”“我查了表”“我跑了 SQL”“某张表里显示”。
 - 默认改用业务表达，例如“按当前口径看”“按你给定范围看”“从结果看”。
